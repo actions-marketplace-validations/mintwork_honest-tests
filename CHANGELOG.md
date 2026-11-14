@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-11-14
+
+### Changed
+
+- The npm package is now **`@mintwork/honest-tests`**; run it with `npx @mintwork/honest-tests`. The unscoped
+  `honest-tests` package is deprecated and points here.
+- The repository moved to [github.com/mintwork/honest-tests](https://github.com/mintwork/honest-tests); old URLs
+  redirect.
+- Skill, plugin and editor-integration instructions use the new package name.
+
 ## [0.1.0] - 2026-11-14
 
 First public release.
@@ -42,4 +52,5 @@ First public release.
   `--test-cmd` in that case.
 - Mutants run one at a time.
 
+[0.1.1]: https://github.com/mintwork/honest-tests/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mintwork/honest-tests/releases/tag/v0.1.0

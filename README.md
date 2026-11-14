@@ -1,8 +1,8 @@
 # honest-tests
 
 [![CI](https://github.com/mintwork/honest-tests/actions/workflows/ci.yml/badge.svg)](https://github.com/mintwork/honest-tests/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/honest-tests?color=cb3837&logo=npm)](https://www.npmjs.com/package/honest-tests)
-[![npm downloads](https://img.shields.io/npm/dm/honest-tests?color=cb3837)](https://www.npmjs.com/package/honest-tests)
+[![npm](https://img.shields.io/npm/v/@mintwork/honest-tests?color=cb3837&logo=npm)](https://www.npmjs.com/package/@mintwork/honest-tests)
+[![npm downloads](https://img.shields.io/npm/dm/@mintwork/honest-tests?color=cb3837)](https://www.npmjs.com/package/@mintwork/honest-tests)
 [![node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](package.json)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/mintwork/honest-tests?style=social)](https://github.com/mintwork/honest-tests/stargazers)
@@ -18,8 +18,8 @@ stay green.
 </p>
 
 ```bash
-npx honest-tests audit .                       # find tests that can't fail
-npx honest-tests mutate src/pricing.ts         # prove it: break the code, see who notices
+npx @mintwork/honest-tests audit .                       # find tests that can't fail
+npx @mintwork/honest-tests mutate src/pricing.ts         # prove it: break the code, see who notices
 ```
 
 ---
@@ -55,7 +55,7 @@ Every one of these passes. Coverage goes up. Nothing is verified.
 ## What honest-tests says about it
 
 ```text
-$ npx honest-tests audit test/pricing.test.ts
+$ npx @mintwork/honest-tests audit test/pricing.test.ts
 
 test/pricing.test.ts
   16:5    error   Compares `result` to itself — this can never fail. tautological-assertion
@@ -77,7 +77,7 @@ constants and return values in your source (on a temp copy), runs your tests, an
 nobody noticed:
 
 ```text
-$ npx honest-tests mutate src/pricing.ts
+$ npx @mintwork/honest-tests mutate src/pricing.ts
 
   22 mutants survived — your tests don't actually check these lines:
 
@@ -119,7 +119,7 @@ it('starts free shipping exactly at 50 for non-members', () => {
 ```
 
 ```text
-$ npx honest-tests audit test && npx honest-tests mutate src/pricing.ts
+$ npx @mintwork/honest-tests audit test && npx @mintwork/honest-tests mutate src/pricing.ts
 ✓ 12 tests in 2 files: no fake tests found.
   Mutation score: 100% (26 killed, 0 timed out, 0 survived of 26; baseline 0.5s)
   ✓ Every mutation was caught. These tests actually test something.
@@ -139,7 +139,7 @@ Both projects live in [`fixtures/`](fixtures) — run `npm run demo:bad` / `npm 
 /plugin install honest-tests@honest-tests
 ```
 
-Or drop just the skill into a repo: `npx honest-tests init claude` (writes `.claude/skills/honest-tests/`).
+Or drop just the skill into a repo: `npx @mintwork/honest-tests init claude` (writes `.claude/skills/honest-tests/`).
 
 Then ask: *"write tests for src/cart.ts"* or *"audit my tests"* — or use the slash commands
 `/honest-tests:audit [path]` and `/honest-tests:mutate <file>`.
@@ -147,20 +147,20 @@ Then ask: *"write tests for src/cart.ts"* or *"audit my tests"* — or use the s
 ### Codex
 
 ```bash
-npx honest-tests init codex      # appends an honest-tests section to AGENTS.md (idempotent)
+npx @mintwork/honest-tests init codex      # appends an honest-tests section to AGENTS.md (idempotent)
 ```
 
 ### Cursor
 
 ```bash
-npx honest-tests init cursor     # writes .cursor/rules/honest-tests.mdc (auto-attaches to test files)
+npx @mintwork/honest-tests init cursor     # writes .cursor/rules/honest-tests.mdc (auto-attaches to test files)
 ```
 
 ### Any agent / CI
 
 ```bash
-npx honest-tests audit . --json                 # machine-readable findings
-npx honest-tests mutate src/x.ts --min-score 80 # fail CI below 80% mutation score
+npx @mintwork/honest-tests audit . --json                 # machine-readable findings
+npx @mintwork/honest-tests mutate src/x.ts --min-score 80 # fail CI below 80% mutation score
 ```
 
 ---
@@ -204,7 +204,7 @@ References the agent loads on demand: [test smell catalog](skills/honest-tests/r
 | `conditional-assertion` | warning | Assertion behind `if` / `&&` / ternary |
 | `skipped-test` | warning | `.skip`, `xit`, `xdescribe` |
 
-`npx honest-tests rules` prints the list. Suppress a deliberate case with a reason:
+`npx @mintwork/honest-tests rules` prints the list. Suppress a deliberate case with a reason:
 
 ```ts
 // honest-tests-disable-next-line no-assertions -- smoke test: module must import cleanly

@@ -27,9 +27,9 @@ const WIDTH = 1200;
 const HEIGHT = 760;
 const FFMPEG = process.env.FFMPEG ?? (existsSync('/opt/homebrew/bin/ffmpeg') ? '/opt/homebrew/bin/ffmpeg' : 'ffmpeg');
 
-const AUDIT_CMD = 'npx honest-tests audit .';
+const AUDIT_CMD = 'npx @mintwork/honest-tests audit .';
 const MUTATE_TARGET = 'src/pricing.ts';
-const MUTATE_CMD = `npx honest-tests mutate ${MUTATE_TARGET}`;
+const MUTATE_CMD = `npx @mintwork/honest-tests mutate ${MUTATE_TARGET}`;
 
 // ---------------------------------------------------------------------------------------------
 // 1. Real CLI output

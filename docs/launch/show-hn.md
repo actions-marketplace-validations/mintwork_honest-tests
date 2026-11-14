@@ -18,9 +18,9 @@ build `{ service: 's3' }` and then check that `.service` is `'s3'`.
 
 honest-tests is a small CLI plus an agent skill for JS/TS (vitest/jest) that does two things:
 
-1. `npx honest-tests audit .` – static rules for tests that can't fail (13 rules, `--json` for CI and
+1. `npx @mintwork/honest-tests audit .` – static rules for tests that can't fail (13 rules, `--json` for CI and
    agents).
-2. `npx honest-tests mutate src/file.ts` – built-in mutation testing. It flips `>=` to `>`, `&&` to `||`,
+2. `npx @mintwork/honest-tests mutate src/file.ts` – built-in mutation testing. It flips `>=` to `>`, `&&` to `||`,
    constants, conditions and return values on a temp copy of the project. It runs only the tests that
    reach the file, and lists every change no test noticed.
 

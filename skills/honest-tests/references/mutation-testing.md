@@ -4,8 +4,8 @@ Static rules find tests that *look* fake. Mutation testing proves whether tests 
 small, deliberate bugs in the source and checks whether any test notices.
 
 ```bash
-npx honest-tests mutate src/pricing.ts
-npx honest-tests audit test/ --mutate src/pricing.ts --json   # both, one JSON document
+npx @mintwork/honest-tests mutate src/pricing.ts
+npx @mintwork/honest-tests audit test/ --mutate src/pricing.ts --json   # both, one JSON document
 ```
 
 ## What it does

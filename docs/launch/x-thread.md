@@ -10,7 +10,7 @@ Your AI wrote 200 tests. Many can't fail.
 I built honest-tests: an agent skill + CLI that finds JS/TS tests that can't fail, and proves it by
 breaking your code and watching the suite stay green.
 
-npx honest-tests audit .
+npx @mintwork/honest-tests audit .
 
 [demo.gif]
 
@@ -28,7 +28,7 @@ All green. All useless.
 **3/**
 Static rules say a test *looks* fake. Mutation testing proves it:
 
-npx honest-tests mutate src/pricing.ts
+npx @mintwork/honest-tests mutate src/pricing.ts
 
 It flips >= to >, && to ||, 50 to 51, and return x to undefined on a temp copy, then lists every change
 no test noticed.
@@ -60,8 +60,8 @@ Claude Code:
 /plugin marketplace add mintwork/honest-tests
 
 Codex / Cursor:
-npx honest-tests init codex
-npx honest-tests init cursor
+npx @mintwork/honest-tests init codex
+npx @mintwork/honest-tests init cursor
 
 MIT, Node 22+, one runtime dep. pytest next.
 

@@ -13,8 +13,8 @@ A test is honest only if it **fails when the behavior it names is broken**. When
 Before reporting that tests are done, run and fix:
 
 ```bash
-npx honest-tests audit <test files>    # must report 0 errors
-npx honest-tests mutate <source file>  # report the mutation score; add tests for surviving mutants
+npx @mintwork/honest-tests audit <test files>    # must report 0 errors
+npx @mintwork/honest-tests mutate <source file>  # report the mutation score; add tests for surviving mutants
 ```
 
-To audit an existing suite: run `npx honest-tests audit . --json`, verify each finding by reading the test (confirmed / false-positive / accepted), prove key findings with `npx honest-tests mutate <file>`, then report "N of M tests can't fail" with the confirmed findings and surviving mutants. Do not edit files during an audit unless asked.
+To audit an existing suite: run `npx @mintwork/honest-tests audit . --json`, verify each finding by reading the test (confirmed / false-positive / accepted), prove key findings with `npx @mintwork/honest-tests mutate <file>`, then report "N of M tests can't fail" with the confirmed findings and surviving mutants. Do not edit files during an audit unless asked.

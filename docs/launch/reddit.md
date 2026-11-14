@@ -30,9 +30,9 @@ expect(p.service).toBe('s3');                      // asserts on a literal it ju
   broken. It also sets hard rules: never weaken an assertion to get green, never mock the unit under
   test, and derive expected values independently. Before saying "done", Claude self-audits with
   `audit` + `mutate`.
-- **`npx honest-tests audit .`** has 13 static rules for tests that can't fail, plus `--json` for
+- **`npx @mintwork/honest-tests audit .`** has 13 static rules for tests that can't fail, plus `--json` for
   agents and CI.
-- **`npx honest-tests mutate src/x.ts`** does built-in mutation testing. It breaks your code on purpose
+- **`npx @mintwork/honest-tests mutate src/x.ts`** does built-in mutation testing. It breaks your code on purpose
   (on a temp copy) and shows every change no test noticed. That's the proof.
 
 Install in Claude Code:
@@ -42,7 +42,7 @@ Install in Claude Code:
 /plugin install honest-tests@honest-tests
 ```
 
-Or `npx honest-tests init claude` to drop the skill into `.claude/skills/`. There are also slash
+Or `npx @mintwork/honest-tests init claude` to drop the skill into `.claude/skills/`. There are also slash
 commands: `/honest-tests:audit` and `/honest-tests:mutate`.
 
 Real-world numbers, with no projects named:
@@ -68,7 +68,7 @@ Repo: https://github.com/mintwork/honest-tests (MIT)
 AI agents are great at producing tests that pass and terrible at producing tests that can fail. I
 wrote a small tool for vitest/jest suites that does two things:
 
-**1. `npx honest-tests audit .`** has 13 rules for tests whose outcome is fixed before your code runs:
+**1. `npx @mintwork/honest-tests audit .`** has 13 rules for tests whose outcome is fixed before your code runs:
 
 - tautologies (`expect(x).toBe(x)`, `toHaveLength(list.length)`)
 - tests with no assertions
@@ -79,7 +79,7 @@ wrote a small tool for vitest/jest suites that does two things:
 - asserting on an object literal the test just built (common in runtime "type tests")
 - leftover `.only`/`.skip`
 
-**2. `npx honest-tests mutate src/pricing.ts`** does lightweight mutation testing with no config. It
+**2. `npx @mintwork/honest-tests mutate src/pricing.ts`** does lightweight mutation testing with no config. It
 flips `>=`→`>`, `&&`→`||`, `true`→`false`, `50`→`51`, `if (c)`→`if (true)` and `return x`→`return
 undefined`. It runs only the test files that import the target (directly or through other local
 modules) and prints every surviving mutant with its source line. It works on a temp copy, so your

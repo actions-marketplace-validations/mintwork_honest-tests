@@ -3,8 +3,8 @@ name: honest-tests
 description: Write and audit tests that actually verify behavior instead of tests that merely pass. Use when writing, generating, reviewing or fixing unit tests (vitest, jest; pytest planned), when asked to "add tests", "increase coverage", "audit/review the tests", or before claiming a change is tested. Detects fake tests (tautological assertions, no assertions, asserting on mocks you configured or on literals the test just built, mocking the unit under test, snapshot-only tests, try/catch that swallows failures, assertions that can never fail, leftover .only/.skip) and proves weak tests with lightweight mutation testing via the `honest-tests` CLI.
 license: MIT
 metadata:
-  version: "0.1.0"
-  cli: "npx honest-tests"
+  version: "0.1.1"
+  cli: "npx @mintwork/honest-tests"
 ---
 
 # Honest Tests
@@ -61,8 +61,8 @@ For each unit:
 4. Self-audit when done (both commands are safe; neither modifies your files):
 
    ```bash
-   npx honest-tests audit <test files or dir>
-   npx honest-tests mutate <source file you just tested>
+   npx @mintwork/honest-tests audit <test files or dir>
+   npx @mintwork/honest-tests mutate <source file you just tested>
    ```
 
 5. Fix every `error` finding. For each **surviving mutant**, either add the missing assertion (usually
@@ -76,7 +76,7 @@ Run the phases in order. Do not skip Phase 2: unverified findings erode trust.
 ### Phase 1 — Detect
 
 ```bash
-npx honest-tests audit <path> --json > honest-tests.json
+npx @mintwork/honest-tests audit <path> --json > honest-tests.json
 ```
 
 The JSON contains `findings[]` with `ruleId`, `severity`, `file`, `line`, `column`, `test`, `message`,
@@ -99,7 +99,7 @@ For every finding, open the file at `line`, read the whole test, and classify it
 Prove the important ones. The strongest proof is a mutation that survives:
 
 ```bash
-npx honest-tests mutate <source file the test targets> --json
+npx @mintwork/honest-tests mutate <source file the test targets> --json
 ```
 
 Surviving mutants are concrete, line-level evidence: "changing `>=` to `>` on line 22 does not fail any

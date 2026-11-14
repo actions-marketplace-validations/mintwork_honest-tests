@@ -9,7 +9,7 @@ For every test, you should be able to complete this sentence:
 If the blank is "nothing" or "it throws", the test is decoration.
 
 A cheap mental mutation check: imagine flipping `>=` to `>`, `+` to `-`, `true` to `false`, or
-replacing a return value with `undefined`. Which of your tests would fail? `npx honest-tests mutate
+replacing a return value with `undefined`. Which of your tests would fail? `npx @mintwork/honest-tests mutate
 <file>` does exactly this for real.
 
 ## Choosing expected values (the oracle)
@@ -88,8 +88,8 @@ expect(rates.fetchTaxRate).toHaveBeenCalledWith('DE');
 ## Before you say "done"
 
 ```bash
-npx honest-tests audit <tests>        # zero errors
-npx honest-tests mutate <source file> # report the score; explain each survivor
+npx @mintwork/honest-tests audit <tests>        # zero errors
+npx @mintwork/honest-tests mutate <source file> # report the score; explain each survivor
 ```
 
 Report: tests added, behaviors covered, mutation score, and any surviving mutants you judged

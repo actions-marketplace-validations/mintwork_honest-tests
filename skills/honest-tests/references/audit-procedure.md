@@ -11,7 +11,7 @@
 ## Phase 1 — Detect
 
 ```bash
-npx honest-tests audit <paths...> --json > honest-tests.json
+npx @mintwork/honest-tests audit <paths...> --json > honest-tests.json
 # useful flags
 #   --ignore "fixtures/**"     skip paths (repeatable)
 #   --rule <id> / --disable <id>
@@ -57,7 +57,7 @@ For each finding:
 2. Check the per-rule "Verify" notes in `test-smells.md`.
 3. Assign a verdict: `confirmed`, `false-positive`, or `accepted`, with a one-sentence note.
 4. For high-impact findings, **prove** them:
-   - Run `npx honest-tests mutate <source-file>`; cite a surviving mutant on the relevant line.
+   - Run `npx @mintwork/honest-tests mutate <source-file>`; cite a surviving mutant on the relevant line.
    - Or reason concretely: "If `applyDiscount` returned `amount` unchanged, this test would still pass
      because the `catch` swallows the AssertionError."
 

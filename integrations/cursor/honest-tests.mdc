@@ -19,6 +19,6 @@ Rules:
 Before saying tests are done, run in the terminal and fix all errors:
 
 ```bash
-npx honest-tests audit <test files>
-npx honest-tests mutate <source file>   # add assertions for each surviving mutant
+npx @mintwork/honest-tests audit <test files>
+npx @mintwork/honest-tests mutate <source file>   # add assertions for each surviving mutant
 ```

@@ -3,7 +3,7 @@ description: Mutation-check a source file and explain which behaviors its tests 
 argument-hint: "<source-file>"
 ---
 
-Run `npx honest-tests mutate $ARGUMENTS --json` (it works on a temp copy; the working tree is not modified).
+Run `npx @mintwork/honest-tests mutate $ARGUMENTS --json` (it works on a temp copy; the working tree is not modified).
 
 Then, for every surviving mutant, explain in one line which behavior is untested and propose the exact
 assertion that would kill it (following `references/writing-honest-tests.md` from the `honest-tests` skill).
