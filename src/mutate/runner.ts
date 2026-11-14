@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, type Dirent } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, extname, join, relative, resolve, sep } from 'node:path';
@@ -247,6 +247,23 @@ interface RunOutcome {
   durationMs: number;
 }
 
+/** Test runs in flight. They run in their own process group, so Ctrl-C doesn't reach them by itself. */
+const running = new Set<ChildProcess>();
+
+function killTree(child: ChildProcess) {
+  try {
+    if (child.pid && process.platform !== 'win32') process.kill(-child.pid, 'SIGKILL');
+    else child.kill('SIGKILL');
+  } catch {
+    /* already gone */
+  }
+}
+
+/** Kill every in-flight test run (and its children). Used on Ctrl-C/SIGTERM before removing the copy. */
+export function killRunningTests() {
+  for (const child of running) killTree(child);
+}
+
 function runCommand(command: string, cwd: string, timeoutMs: number, extraPath: string[]): Promise<RunOutcome> {
   return new Promise((resolvePromise) => {
     const started = Date.now();
@@ -257,6 +274,8 @@ function runCommand(command: string, cwd: string, timeoutMs: number, extraPath: 
       detached: process.platform !== 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    running.add(child);
+    child.on('exit', () => running.delete(child));
     // Keep the start (where runners print the actual error) and the end (the summary).
     let head = '';
     let tail = '';
@@ -277,14 +296,7 @@ function runCommand(command: string, cwd: string, timeoutMs: number, extraPath: 
     child.stdout?.on('data', collect);
     child.stderr?.on('data', collect);
     let timedOut = false;
-    const kill = () => {
-      try {
-        if (child.pid && process.platform !== 'win32') process.kill(-child.pid, 'SIGKILL');
-        else child.kill('SIGKILL');
-      } catch {
-        /* already gone */
-      }
-    };
+    const kill = () => killTree(child);
     const timer = setTimeout(() => {
       timedOut = true;
       kill();
@@ -345,6 +357,7 @@ export async function mutate(opts: MutateOptions): Promise<MutationReport> {
   const tmp = mkdtempSync(join(tmpdir(), 'honest-tests-'));
   const cleanup = () => rmSync(tmp, { recursive: true, force: true });
   const onSignal = (sig: NodeJS.Signals) => {
+    killRunningTests();
     cleanup();
     process.kill(process.pid, sig);
   };

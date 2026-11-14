@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
 import { jsAdapter, resolveTestScript, scopedTestCommand } from '../src/adapters/js/index.js';
 import { applyMutant, generateJsMutants } from '../src/adapters/js/mutants.js';
-import { findRelatedTests, mutate } from '../src/mutate/runner.js';
+import { findRelatedTests, killRunningTests, mutate } from '../src/mutate/runner.js';
 
 const ROOT = resolve(__dirname, '..');
 
@@ -188,6 +188,26 @@ describe('mutate() inside a workspace package (field-test regression)', { timeou
       expect(report.score).toBe(100);
     } finally {
       rmSync(ws, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('interrupting a mutation run (field-test regression)', { timeout: 60_000 }, () => {
+  it('kills the in-flight test process group, not just honest-tests itself', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ht-sigint-'));
+    const pidFile = join(dir, 'pid');
+    try {
+      writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'x', scripts: { test: 'true' } }));
+      writeFileSync(join(dir, 'x.js'), 'export const one = () => 1;\n');
+      const sleeper = `node -e "require('fs').writeFileSync('${pidFile}', String(process.pid)); setTimeout(() => {}, 60000)"`;
+      const run = mutate({ target: join(dir, 'x.js'), cwd: dir, testCmd: sleeper });
+      for (let i = 0; i < 200 && !existsSync(pidFile); i++) await new Promise((r) => setTimeout(r, 50));
+      const pid = Number(readFileSync(pidFile, 'utf8'));
+      killRunningTests();
+      await expect(run).rejects.toThrow('Tests fail before any mutation');
+      expect(() => process.kill(pid, 0)).toThrow();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });
