@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, existsSync, writeFileSync, rmSync } from 'no
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { run } from '../src/run.js';
+import { excerpt, run } from '../src/run.js';
 
 const ROOT = resolve(__dirname, '..');
 
@@ -127,5 +127,15 @@ describe('honest-tests init', () => {
     dir = mkdtempSync(join(tmpdir(), 'ht-init-'));
     await cli(['init', 'cursor'], dir);
     expect(readFileSync(join(dir, '.cursor/rules/honest-tests.mdc'), 'utf8')).toContain('honest-tests audit');
+  });
+});
+
+describe('error excerpts (field-test regression)', () => {
+  it('keeps the first lines (the actual error) as well as the last (the summary)', () => {
+    const out = ['Error: browserType.launch: Executable does not exist', ...Array.from({ length: 100 }, (_, i) => `  at frame ${i}`), 'Test Files  1 failed'].join('\n');
+    const shown = excerpt(out);
+    expect(shown.split('\n')[0]).toBe('Error: browserType.launch: Executable does not exist');
+    expect(shown).toContain('Test Files  1 failed');
+    expect(shown).toContain('62 lines');
   });
 });

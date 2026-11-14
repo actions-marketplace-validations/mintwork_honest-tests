@@ -154,3 +154,40 @@ describe('related test selection (field-test regression)', () => {
     }
   });
 });
+
+describe('mutate() inside a workspace package (field-test regression)', { timeout: 60_000 }, () => {
+  it('keeps hoisted node_modules, root configs and sibling packages reachable from the temp copy', async () => {
+    const ws = mkdtempSync(join(tmpdir(), 'ht-ws-'));
+    try {
+      writeFileSync(join(ws, 'package.json'), JSON.stringify({ private: true, workspaces: ['pkgs/*'] }));
+      writeFileSync(join(ws, 'tsconfig.json'), '{}\n');
+      mkdirSync(join(ws, 'pkgs', 'tz'), { recursive: true });
+      writeFileSync(join(ws, 'pkgs', 'tz', 'tsconfig.json'), '{}\n'); // sibling referenced by the root tsconfig
+      mkdirSync(join(ws, 'node_modules', 'dep'), { recursive: true });
+      writeFileSync(join(ws, 'node_modules', 'dep', 'package.json'), JSON.stringify({ name: 'dep', type: 'module', main: 'index.js' }));
+      writeFileSync(join(ws, 'node_modules', 'dep', 'index.js'), 'export default 42;\n');
+      const pkg = join(ws, 'pkgs', 'core');
+      mkdirSync(join(pkg, 'src'), { recursive: true });
+      mkdirSync(join(pkg, 'test'));
+      writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: 'core', type: 'module', scripts: { test: 'node test/check.mjs' } }));
+      writeFileSync(join(pkg, 'src', 'add.js'), 'export const add = (a, b) => a + b;\n');
+      writeFileSync(
+        join(pkg, 'test', 'check.mjs'),
+        [
+          "import { readFileSync } from 'node:fs';",
+          "import dep from 'dep';",
+          "import { add } from '../src/add.js';",
+          "readFileSync(new URL('../../../tsconfig.json', import.meta.url));",
+          "readFileSync(new URL('../../tz/tsconfig.json', import.meta.url));",
+          'if (add(2, 3) !== 5 || dep !== 42) process.exit(1);',
+        ].join('\n'),
+      );
+      const report = await mutate({ target: join(pkg, 'src', 'add.js'), cwd: ws });
+      expect(report.root).toBe('pkgs/core');
+      expect(report.tested).toBeGreaterThan(0);
+      expect(report.score).toBe(100);
+    } finally {
+      rmSync(ws, { recursive: true, force: true });
+    }
+  });
+});

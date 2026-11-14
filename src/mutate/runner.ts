@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, type Dirent } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, type Dirent } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { adapterFor } from '../adapters/index.js';
@@ -150,6 +150,78 @@ export function findRelatedTests(root: string, target: string, adapter: Language
   return [...tests].sort();
 }
 
+/** Nearest ancestor (or `root` itself) that is a pnpm/yarn/npm workspace root. */
+function workspaceRootOf(root: string): string | null {
+  let dir = root;
+  for (;;) {
+    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
+    try {
+      const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { workspaces?: unknown };
+      if (pkg.workspaces) return dir;
+    } catch {
+      /* no package.json here */
+    }
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+
+function copyProject(from: string, to: string) {
+  cpSync(from, to, {
+    recursive: true,
+    filter: (src) => {
+      const rel = relative(from, src);
+      return !rel.split(sep).includes('node_modules') && rel.split(sep)[0] !== '.git';
+    },
+  });
+}
+
+/** Every node_modules directory under `dir` (not descending into them). */
+function nodeModulesDirs(dir: string, out: string[] = []): string[] {
+  let entries: Dirent[];
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    if (!e.isDirectory() || e.name === '.git') continue;
+    const p = join(dir, e.name);
+    if (e.name === 'node_modules') out.push(p);
+    else nodeModulesDirs(p, out);
+  }
+  return out;
+}
+
+/**
+ * Copy the project into `tmp` and return the directory to run tests in.
+ *
+ * Plain packages: `tmp/` is the copy and `tmp/node_modules` links to the nearest installed node_modules.
+ * Workspace packages (`pkgs/core` in a pnpm/yarn/npm monorepo): the whole workspace is copied (without
+ * node_modules and .git) so root configs, tsconfig project references and sibling packages resolve,
+ * and every node_modules directory is linked back at the same relative spot.
+ */
+function prepareCopy(root: string, tmp: string): string {
+  const ws = workspaceRootOf(root);
+  if (!ws || ws === root) {
+    copyProject(root, tmp);
+    const nm = findNodeModules(root);
+    if (nm) symlinkSync(nm, join(tmp, 'node_modules'), linkType);
+    return tmp;
+  }
+  copyProject(ws, tmp);
+  for (const nm of nodeModulesDirs(ws)) {
+    const dest = join(tmp, relative(ws, nm));
+    if (existsSync(dest)) continue;
+    mkdirSync(dirname(dest), { recursive: true });
+    symlinkSync(nm, dest, linkType);
+  }
+  return join(tmp, relative(ws, root));
+}
+
 function toPosix(p: string): string {
   return p.split(sep).join('/');
 }
@@ -185,11 +257,23 @@ function runCommand(command: string, cwd: string, timeoutMs: number, extraPath: 
       detached: process.platform !== 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    let output = '';
+    // Keep the start (where runners print the actual error) and the end (the summary).
+    let head = '';
+    let tail = '';
+    let dropped = false;
     const collect = (d: Buffer) => {
-      output += d.toString();
-      if (output.length > 20_000) output = output.slice(-20_000);
+      const text = d.toString();
+      if (head.length < 6_000) {
+        const room = 6_000 - head.length;
+        head += text.slice(0, room);
+        tail += text.slice(room);
+      } else tail += text;
+      if (tail.length > 16_000) {
+        tail = tail.slice(-16_000);
+        dropped = true;
+      }
     };
+    const output = () => (dropped ? `${head}\n…\n${tail}` : head + tail);
     child.stdout?.on('data', collect);
     child.stderr?.on('data', collect);
     let timedOut = false;
@@ -207,11 +291,11 @@ function runCommand(command: string, cwd: string, timeoutMs: number, extraPath: 
     }, timeoutMs);
     child.on('close', (code) => {
       clearTimeout(timer);
-      resolvePromise({ code, timedOut, output, durationMs: Date.now() - started });
+      resolvePromise({ code, timedOut, output: output(), durationMs: Date.now() - started });
     });
     child.on('error', (err) => {
       clearTimeout(timer);
-      resolvePromise({ code: 1, timedOut, output: output + String(err), durationMs: Date.now() - started });
+      resolvePromise({ code: 1, timedOut, output: output() + String(err), durationMs: Date.now() - started });
     });
   });
 }
@@ -268,21 +352,13 @@ export async function mutate(opts: MutateOptions): Promise<MutationReport> {
   process.once('SIGTERM', onSignal);
 
   try {
-    cpSync(root, tmp, {
-      recursive: true,
-      filter: (src) => {
-        const rel = relative(root, src);
-        const first = rel.split(sep)[0];
-        return !rel.split(sep).includes('node_modules') && first !== '.git';
-      },
-    });
-    const nm = findNodeModules(root);
-    if (nm) symlinkSync(nm, join(tmp, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+    const work = prepareCopy(root, tmp);
+    const tmpTarget = join(work, relTarget);
+    // Real bin dirs, not the symlinked copy: pnpm's .bin shims resolve paths relative to their own
+    // location, and from inside the temp dir `../../node_modules/.pnpm` points nowhere.
+    const extraPath = binPaths(root);
 
-    const tmpTarget = join(tmp, relTarget);
-    const extraPath = [join(tmp, 'node_modules', '.bin'), ...binPaths(root)];
-
-    const baseline = await runCommand(command, tmp, opts.timeoutMs ?? 5 * 60_000, extraPath);
+    const baseline = await runCommand(command, work, opts.timeoutMs ?? 5 * 60_000, extraPath);
     if (baseline.code !== 0) {
       throw new MutationError(
         baseline.timedOut
@@ -298,7 +374,7 @@ export async function mutate(opts: MutateOptions): Promise<MutationReport> {
       let outcome: RunOutcome;
       try {
         writeFileSync(tmpTarget, source.slice(0, m.start) + m.replacement + source.slice(m.end));
-        outcome = await runCommand(command, tmp, timeoutMs, extraPath);
+        outcome = await runCommand(command, work, timeoutMs, extraPath);
       } finally {
         writeFileSync(tmpTarget, source);
       }

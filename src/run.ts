@@ -154,7 +154,7 @@ export async function run(argv: string[], io: IO): Promise<number> {
       if (showProgress) io.stderr('\n');
       const err = e as MutationError;
       io.stderr(c.red(`Mutation check failed: ${err.message}\n`));
-      if (err.output) io.stderr(c.dim(err.output.split('\n').slice(-30).join('\n')) + '\n');
+      if (err.output) io.stderr(c.dim(excerpt(err.output)) + '\n');
       return 2;
     }
     if (!v.json) io.stdout(formatMutation(mutation) + '\n');
@@ -164,6 +164,13 @@ export async function run(argv: string[], io: IO): Promise<number> {
 
   if (v.json) io.stdout(toJson(auditResult, mutation) + '\n');
   return exit;
+}
+
+/** First and last lines of a test run: the error is usually at the top, the summary at the bottom. */
+export function excerpt(output: string, headLines = 20, tailLines = 20): string {
+  const lines = output.replace(/\n{3,}/g, '\n\n').trimEnd().split('\n');
+  if (lines.length <= headLines + tailLines) return lines.join('\n');
+  return [...lines.slice(0, headLines), `  … ${lines.length - headLines - tailLines} lines …`, ...lines.slice(-tailLines)].join('\n');
 }
 
 const MARK_START = '<!-- honest-tests:start -->';
