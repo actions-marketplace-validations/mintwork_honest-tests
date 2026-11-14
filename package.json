@@ -2,6 +2,14 @@
   "name": "honest-tests",
   "version": "0.1.0",
   "description": "Stop AI coding agents from writing fake tests. An agent skill + CLI that detects tests that can't fail, and proves it with mutation testing.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ranjan-mohanty/honest-tests.git"
+  },
+  "homepage": "https://github.com/ranjan-mohanty/honest-tests#readme",
+  "bugs": {
+    "url": "https://github.com/ranjan-mohanty/honest-tests/issues"
+  },
   "type": "module",
   "bin": {
     "honest-tests": "dist/cli.js"

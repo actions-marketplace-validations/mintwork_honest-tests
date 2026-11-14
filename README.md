@@ -125,7 +125,7 @@ Both projects live in [`fixtures/`](fixtures) — run `npm run demo:bad` / `npm 
 ### Claude Code (plugin + skill)
 
 ```text
-/plugin marketplace add OWNER/honest-tests
+/plugin marketplace add ranjan-mohanty/honest-tests
 /plugin install honest-tests@honest-tests
 ```
 
