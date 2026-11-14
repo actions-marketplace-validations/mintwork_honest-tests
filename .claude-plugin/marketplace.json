@@ -1,7 +1,8 @@
 {
   "name": "honest-tests",
   "owner": {
-    "name": "honest-tests contributors"
+    "name": "ranjan-mohanty",
+    "url": "https://github.com/ranjan-mohanty"
   },
   "metadata": {
     "description": "Agent skill that stops AI coding agents from writing fake tests",
@@ -13,7 +14,9 @@
       "description": "Write and audit tests that actually verify behavior: detect fake tests and prove them with mutation testing",
       "source": "./",
       "strict": false,
-      "skills": ["./skills/honest-tests"]
+      "skills": [
+        "./skills/honest-tests"
+      ]
     }
   ]
 }

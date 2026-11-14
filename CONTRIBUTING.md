@@ -12,7 +12,7 @@ npm run dogfood    # honest-tests must report zero findings on its own tests
 npm run demo:gif   # re-render docs/demo.gif from the real CLI output (Playwright + Google Chrome + ffmpeg)
 ```
 
-Node 20+. Runtime dependencies are deliberately minimal (`@babel/parser` only) — please don't add more
+Node 22+. Runtime dependencies are deliberately minimal (`@babel/parser` only) — please don't add more
 without discussion.
 
 ## Layout
@@ -57,3 +57,21 @@ and optionally `generateMutants`, `testImportsTarget`, `defaultTestCommand`. Reg
 
 - Small, focused PRs with tests. `npm test`, `npm run typecheck` and `npm run dogfood` must pass.
 - Never weaken an existing test to make your change pass. (Yes, we check.)
+
+## Releasing
+
+1. Bump `version` in `package.json`, `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`,
+   update `CHANGELOG.md`, add `docs/release-notes-vX.Y.Z.md`, commit and push.
+2. Create the release; the [release workflow](.github/workflows/release.yml) checks that the tag
+   matches `package.json`, runs the typecheck, tests and dogfood audit, and publishes to npm with
+   provenance:
+
+   ```bash
+   gh release create v0.2.0 --title "honest-tests v0.2.0" --notes-file docs/release-notes-v0.2.0.md
+   ```
+
+**npm auth:** the workflow uses [npm trusted publishing](https://docs.npmjs.com/trusted-publishers)
+(configure `ranjan-mohanty/honest-tests` + `release.yml` on the package's npm settings page), or an
+`NPM_TOKEN` repository secret as a fallback. A version already on npm is skipped. Manual runs of the
+workflow are dry runs.
+

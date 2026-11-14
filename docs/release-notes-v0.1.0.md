@@ -50,7 +50,7 @@ npx honest-tests mutate src/pricing.ts   # break the code on purpose, see which 
 ## Install
 
 ```bash
-npx honest-tests audit .                          # CLI, Node 20+
+npx honest-tests audit .                          # CLI, Node 22+
 npx honest-tests init claude                      # skill into .claude/skills/
 ```
 

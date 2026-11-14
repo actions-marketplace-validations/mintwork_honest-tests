@@ -96,7 +96,7 @@ Some numbers, with no projects named:
 It also ships as an Agent Skill (Claude Code plugin, Codex `AGENTS.md`, Cursor rule), so agents check
 their own tests before claiming they're done. That's the original motivation.
 
-It has one runtime dependency (`@babel/parser`), needs Node 20+, and is MIT licensed. A pytest adapter
+It has one runtime dependency (`@babel/parser`), needs Node 22+, and is MIT licensed. A pytest adapter
 is next. The rule engine is language-neutral.
 
 https://github.com/ranjan-mohanty/honest-tests

@@ -1,5 +1,12 @@
 # honest-tests
 
+[![CI](https://github.com/ranjan-mohanty/honest-tests/actions/workflows/ci.yml/badge.svg)](https://github.com/ranjan-mohanty/honest-tests/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/honest-tests?color=cb3837&logo=npm)](https://www.npmjs.com/package/honest-tests)
+[![npm downloads](https://img.shields.io/npm/dm/honest-tests?color=cb3837)](https://www.npmjs.com/package/honest-tests)
+[![node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](package.json)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/ranjan-mohanty/honest-tests?style=social)](https://github.com/ranjan-mohanty/honest-tests/stargazers)
+
 ### Your AI wrote 200 tests. Many of them can't fail.
 
 **honest-tests** is an agent skill + CLI that stops Claude Code, Codex, Cursor and friends from writing

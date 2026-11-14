@@ -63,6 +63,6 @@ Codex / Cursor:
 npx honest-tests init codex
 npx honest-tests init cursor
 
-MIT, Node 20+, one runtime dep. pytest next.
+MIT, Node 22+, one runtime dep. pytest next.
 
 github.com/ranjan-mohanty/honest-tests
