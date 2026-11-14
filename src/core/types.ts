@@ -61,8 +61,13 @@ export interface AssertionContext {
   inCatch: boolean;
   /** Inside a `catch` whose `try` block calls fail()/throws after the risky call, so skipping the catch fails the test. */
   catchGuarded: boolean;
-  /** Inside an `if`/ternary/`&&` guard. */
+  /** Inside an `if`/ternary/`&&` guard (branches where every path asserts don't count). */
   inConditional: boolean;
+  /**
+   * Normalized text of the value each enclosing guard tests (`!r.success` -> `r.success`).
+   * Lets rules excuse type-narrowing guards whose condition was already asserted.
+   */
+  guards?: string[];
 }
 
 export interface Assertion {
@@ -91,6 +96,12 @@ export interface MockSetup {
   configuresReturn: boolean;
 }
 
+/** `spy.mockRestore()` / `fn.mockReset()` (target set) or `vi.restoreAllMocks()` (target null). */
+export interface MockRestore {
+  target: string | null;
+  line: number;
+}
+
 export type TestModifier = 'only' | 'skip' | 'todo' | null;
 
 export interface TestCase {
@@ -110,6 +121,8 @@ export interface TestCase {
   hasAssertionCountGuard: boolean;
   /** Mocks configured inside this test (or in file-level setup visible to it). */
   mockSetups: MockSetup[];
+  /** Mock restores/resets inside this test body; a configured mock is inactive after one. */
+  mockRestores?: MockRestore[];
 }
 
 export interface ModuleMock {

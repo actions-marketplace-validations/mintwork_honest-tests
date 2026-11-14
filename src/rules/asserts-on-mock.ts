@@ -12,13 +12,29 @@ export const assertsOnMock: Rule = {
       const configured = new Map<string, number>();
       for (const m of t.mockSetups) if (m.configuresReturn && !configured.has(m.target)) configured.set(m.target, m.line);
       if (configured.size === 0) continue;
+      const restores = t.mockRestores ?? [];
+      // Lines of setups that share a declaration (`const spy = vi.spyOn(o, 'm')` registers `spy` and `o.m`).
+      const setupLines = (target: string) => new Set(t.mockSetups.filter((m) => m.target === target).map((m) => m.line));
+      /** The mock still returns its configured value at `line` (not restored/reset in between). */
+      const activeAt = (target: string, line: number) => {
+        const lines = setupLines(target);
+        const setupLine = configured.get(target)!;
+        return !restores.some((r) => {
+          if (r.line <= setupLine || r.line >= line) return false;
+          if (r.target === null || r.target === target) return true;
+          return [...setupLines(r.target)].some((l) => lines.has(l));
+        });
+      };
       for (const a of t.assertions) {
         const s = a.subject;
         if (!s || a.matcherKind === 'called' || a.matcherKind === 'none') continue;
         let hit: string | undefined;
         if (s.kind === 'call' && s.calleeText && configured.has(s.calleeText)) hit = s.calleeText;
         else if (s.kind === 'identifier' && s.aliasCalleeText && configured.has(s.aliasCalleeText)) hit = s.aliasCalleeText;
-        else if (s.kind === 'member') hit = [...configured.keys()].find((k) => s.text.startsWith(`${k}.mock.`));
+        // Only `.mock.results` echoes configured return values; `.mock.calls`, `.lastCall`,
+        // `.invocationCallOrder`, `.instances` record what the code under test did with the mock.
+        else if (s.kind === 'member') hit = [...configured.keys()].find((k) => s.text.startsWith(`${k}.mock.results`));
+        if (hit && !activeAt(hit, a.line)) hit = undefined;
         if (hit) {
           out.push(
             atAssertion(

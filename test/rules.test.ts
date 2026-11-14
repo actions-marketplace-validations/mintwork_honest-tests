@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { rules } from '../src/rules/index.js';
-import { hits, scan } from './support.js';
+import { auditSource } from '../src/core/engine.js';
+import { HEADER, hits, scan } from './support.js';
 
 describe('no-assertions', () => {
   it('flags a test that only calls the code', () => {
@@ -334,5 +335,224 @@ describe('rule catalog', () => {
       expect(r.description.length).toBeGreaterThan(20);
       expect(r.fix.length).toBeGreaterThan(20);
     }
+  });
+});
+
+// Regressions from field-testing on real projects. Each snippet is a minimal synthetic version of a
+// pattern that produced a false positive (or a crash) in a real codebase.
+describe('field-test regressions', () => {
+  describe('no-assertions', () => {
+    it('counts functions imported from node:assert / assert / chai (node:test style)', () => {
+      const src = [
+        `import { equal, ok as truthy } from 'node:assert';`,
+        `import * as a from 'assert/strict';`,
+        `const { match } = require('node:assert');`,
+        `const strict = require('node:assert').strict;`,
+        `it('a', () => { equal(add(1, 2), 3); });`,
+        `it('b', () => { truthy(isReady()); });`,
+        `it('c', () => { a.deepEqual(list(), [1]); });`,
+        `it('d', () => { match(version(), /^\\d/); });`,
+        `it('e', () => { strict.equal(add(1, 1), 2); });`,
+      ].join('\n');
+      expect(hits(src)).toEqual([]);
+    });
+
+    it('still flags a test that only calls an imported non-assert function', () => {
+      expect(hits(`import { equal } from './math';\nit('a', () => {\n  equal(1, 2);\n});`)).toEqual(['no-assertions@3']);
+    });
+
+    it('counts calls to file-local helpers that assert, including helpers calling helpers', () => {
+      const src = [
+        `function checkHeader(headers, key, value) { expect(headers[key]).toBe(value); }`,
+        `const differential = (schema, inputs) => { for (const i of inputs) checkHeader(run(schema, i), 'x', 1); };`,
+        `function setup() { return build(); }`,
+        `it('a', () => { checkHeader(req().headers, 'Content-Type', 'json'); });`,
+        `it('b', () => { differential(schema, [1, 2]); });`,
+        `it('c', () => {\n  setup();\n});`,
+      ].join('\n');
+      expect(hits(src)).toEqual(['no-assertions@7']);
+    });
+
+    it('recognizes vitest browser-mode expect.element()', () => {
+      expect(hits(`it('a', async () => {\n  await expect.element(page.getByText('Hi')).toBeVisible();\n});`)).toEqual([]);
+    });
+  });
+
+  describe('focused-test / test discovery', () => {
+    it('does not treat a local function named fit() inside a test as a focused test', () => {
+      const src = [
+        `it('truncates', async () => {`,
+        `  const { fit } = await import('./text');`,
+        `  expect(fit('a b c', 3)).toBe('a b');`,
+        `});`,
+        `function context() { return {}; }`,
+        `context('not a suite', () => {});`,
+      ].join('\n');
+      const found = scan(src);
+      expect(found).toEqual([]);
+    });
+
+    it('does not count calls to a local `test` variable inside a test body as tests', () => {
+      const src = `it('matches kinds', () => {\n  const test = kindOf('number');\n  expect(test(1)).toBe(true);\n});`;
+      expect(hits(src)).toEqual([]);
+      expect(auditSource('src/kind.test.ts', HEADER + src)).toEqual([]);
+    });
+
+    it('still reports jasmine fit() when it is not a local name', () => {
+      expect(hits(`fit('b', () => { expect(f()).toBe(1); });`)).toEqual(['focused-test@2']);
+    });
+
+    it('keeps test template names readable', () => {
+      const src = 'for (const mode of ["a"]) {\n  it(`checks ${mode} imports`, () => {\n    run();\n  });\n}';
+      expect(scan(src)[0]?.test).toBe('`checks ${mode} imports`');
+    });
+  });
+
+  describe('asserts-on-mock', () => {
+    it('does not flag .mock.calls / .lastCall / .invocationCallOrder — those are interactions', () => {
+      const src = [
+        `it('x', async () => {`,
+        `  const customFetch = vi.fn().mockResolvedValue(ok);`,
+        `  await client({ fetch: customFetch }).get('/a');`,
+        `  expect(customFetch.mock.calls[0][0]).toBe('/a');`,
+        `  expect(customFetch.mock.calls.length).toBe(1);`,
+        `  expect(customFetch.mock.lastCall).toEqual(['/a']);`,
+        `  expect(customFetch.mock.invocationCallOrder[0]).toBeLessThan(2);`,
+        `});`,
+      ].join('\n');
+      expect(hits(src)).toEqual([]);
+    });
+
+    it('stops treating a spy as configured after mockRestore()/restoreAllMocks()', () => {
+      const src = [
+        `it('x', () => {`,
+        `  const spy = vi.spyOn(schema, 'parse').mockReturnValue(1);`,
+        `  expect(schema.parse('a')).toBe(1);`,
+        `  spy.mockRestore();`,
+        `  expect(schema.parse('a')).toBe('a');`,
+        `  vi.mocked(load).mockReturnValue(2);`,
+        `  vi.restoreAllMocks();`,
+        `  expect(load()).toBe(3);`,
+        `});`,
+      ].join('\n');
+      expect(hits(src)).toEqual(['asserts-on-mock@4']);
+    });
+  });
+
+  describe('tautological-assertion', () => {
+    it('allows property checks against a transformed copy (sorted, lower-cased)', () => {
+      const src = [
+        `it('x', () => {`,
+        `  const keys = Object.keys(mimeTypes);`,
+        `  expect(keys).toEqual(keys.toSorted());`,
+        `  expect(keys).toEqual(keys.map((k) => k.toLowerCase()));`,
+        `});`,
+      ].join('\n');
+      expect(hits(src)).toEqual([]);
+    });
+
+    it('still flags restating the actual value as a copy', () => {
+      const src = `it('x', () => {\n  const list = build();\n  expect(list).toEqual(list.slice());\n  expect(list).toEqual([...list]);\n});`;
+      expect(hits(src)).toEqual(['tautological-assertion@4', 'tautological-assertion@5']);
+    });
+  });
+
+  describe('never-failing-assertion', () => {
+    it('does not call an expect.poll() callback "always truthy"', () => {
+      expect(hits(`it('x', async () => {\n  await expect.poll(async () => (await status()).code).toBeTruthy();\n});`)).toEqual([]);
+    });
+
+    it('accepts an async matcher stored in a variable and awaited later', () => {
+      const src = [
+        `it('x', async () => {`,
+        `  const pending = expect(check()).rejects.toThrow('late');`,
+        `  await vi.advanceTimersByTimeAsync(1000);`,
+        `  await pending;`,
+        `});`,
+        `it('y', async () => {`,
+        `  const forgotten = expect(check()).rejects.toThrow('late');`,
+        `});`,
+      ].join('\n');
+      expect(hits(src)).toEqual(['never-failing-assertion@8']);
+    });
+  });
+
+  describe('catch-only-assertion', () => {
+    it('accepts a catch that returns, followed by fail() after the try', () => {
+      const src = `it('x', async () => {\n  try {\n    await get('/bad');\n  } catch (e) {\n    expect(e.message).toBe('bad');\n    return;\n  }\n  assert.fail('expected an error');\n});`;
+      expect(hits(src)).toEqual([]);
+    });
+
+    it('accepts a catch that sets a flag asserted afterwards', () => {
+      const src = `it('x', async () => {\n  let threw = false;\n  try {\n    await get('/bad');\n  } catch (e) {\n    threw = true;\n    expect(e.status).toBe(401);\n  }\n  expect(threw).toBe(true);\n});`;
+      expect(hits(src)).toEqual([]);
+    });
+
+    it('still flags a catch-only test when the flag is never checked', () => {
+      const src = `it('x', async () => {\n  let threw = false;\n  try {\n    await get('/bad');\n  } catch (e) {\n    threw = true;\n    expect(e.status).toBe(401);\n  }\n});`;
+      expect(hits(src)).toEqual(['catch-only-assertion@8']);
+    });
+  });
+
+  describe('conditional-assertion', () => {
+    it('allows if/else (and else-if chains) where every branch asserts', () => {
+      const src = [
+        `it('x', async () => {`,
+        `  if (kind === 'cancel') {`,
+        `    await expect(p).rejects.toMatchObject({ code: 'ERR_CANCELED' });`,
+        `  } else if (kind === 'error') {`,
+        `    await expect(p).rejects.toThrow();`,
+        `  } else {`,
+        `    expect((await p).status).toBe(200);`,
+        `  }`,
+        `  kind ? expect(a).toBe(1) : expect(b).toBe(2);`,
+        `});`,
+      ].join('\n');
+      expect(hits(src)).toEqual([]);
+    });
+
+    it('still flags an else-if chain with a branch that asserts nothing', () => {
+      const src = `it('x', () => {\n  if (a) {\n    expect(f()).toBe(1);\n  } else if (b) {\n    run();\n  } else {\n    expect(f()).toBe(2);\n  }\n});`;
+      expect(hits(src)).toEqual(['conditional-assertion@4']);
+    });
+
+    it('allows type-narrowing guards whose condition was already asserted', () => {
+      const src = [
+        `it('x', () => {`,
+        `  const r = schema.safeParse(1);`,
+        `  expect(r.success).toBe(false);`,
+        `  if (!r.success) {`,
+        `    expect(r.error.issues[0].message).toBe('bad');`,
+        `  }`,
+        `  expect(Array.isArray(body)).toBe(true);`,
+        `  if (Array.isArray(body)) expect(body.length).toBe(2);`,
+        `  expect(issue.code).toBe('invalid_type');`,
+        `  if (issue.code === 'invalid_type') expect(issue.expected).toBe('string');`,
+        `});`,
+      ].join('\n');
+      expect(hits(src)).toEqual([]);
+    });
+
+    it('still flags a guard that was never asserted, and `expect() && expect()`', () => {
+      const src = [
+        `it('x', () => {`,
+        `  const r = schema.safeParse(1);`,
+        `  if (!r.success) {`,
+        `    expect(r.error.issues[0].message).toBe('bad');`,
+        `  }`,
+        `});`,
+        `it('y', () => {`,
+        `  expect(input).toHaveValue('a') && expect(onRun).not.toHaveBeenCalled();`,
+        `});`,
+      ].join('\n');
+      expect(hits(src)).toEqual(['conditional-assertion@5', 'conditional-assertion@9']);
+    });
+  });
+
+  describe('excessive-mocking', () => {
+    it('counts each mocked module once even when re-mocked per test', () => {
+      const mocks = [`vi.mock('./a');`, `vi.mock('./b');`, `vi.mock('./c');`, `it('x', () => { vi.doMock('./d'); expect(run()).toBe(1); });`, `it('y', () => { vi.doMock('./d'); expect(run()).toBe(2); });`];
+      expect(hits(mocks.join('\n'))).toEqual([]);
+    });
   });
 });

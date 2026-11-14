@@ -1,6 +1,15 @@
 import type { RawFinding, Rule } from '../core/types.js';
 import { atAssertion, code, eachTest } from './helpers.js';
 
+/**
+ * Expected values that are the actual value restated: `toHaveLength(list.length)`, `toEqual(list.slice())`.
+ * Transformations (`toEqual(keys.toSorted())`, `toEqual(xs.map(lower))`) are real property checks.
+ */
+function isCopyOf(actual: string, expected: string, kind: string): boolean {
+  if (kind === 'length') return expected === `${actual}.length` || expected === `${actual}.size`;
+  return [`${actual}.slice()`, `${actual}.concat()`, `${actual}.valueOf()`, `[...${actual}]`, `{...${actual}}`, `structuredClone(${actual})`].includes(expected);
+}
+
 export const tautologicalAssertion: Rule = {
   id: 'tautological-assertion',
   severity: 'error',
@@ -21,11 +30,7 @@ export const tautologicalAssertion: Rule = {
         if (a.matcherKind !== 'equal' && a.matcherKind !== 'length') continue;
         if (expected.text === s.text) {
           out.push(atAssertion(t, a, `Compares ${code(s.text)} to itself — this can never fail.`));
-        } else if (
-          (s.kind === 'identifier' || s.kind === 'member') &&
-          (expected.kind === 'member' || expected.kind === 'call') &&
-          expected.text.startsWith(s.text + '.')
-        ) {
+        } else if ((s.kind === 'identifier' || s.kind === 'member') && isCopyOf(s.text, expected.text, a.matcherKind)) {
           out.push(atAssertion(t, a, `Expected value ${code(expected.text)} is derived from the actual value ${code(s.text)} — the assertion checks nothing.`));
         }
       }

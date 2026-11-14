@@ -8,14 +8,16 @@ export const excessiveMocking: Rule = {
   description: `File mocks ${EXCESSIVE_MOCK_THRESHOLD}+ modules — the test mostly exercises mocks wired to each other.`,
   fix: 'Mock at the system boundary (HTTP, DB, clock) and let internal modules run for real, or split the unit so it needs fewer collaborators.',
   check(file) {
-    if (file.moduleMocks.length < EXCESSIVE_MOCK_THRESHOLD) return [];
+    // Re-mocking the same module in several tests (vi.doMock per case) is still one collaborator.
+    const specs = [...new Set(file.moduleMocks.map((m) => m.specifier))];
+    if (specs.length < EXCESSIVE_MOCK_THRESHOLD) return [];
     const first = file.moduleMocks[0]!;
     return [
       {
         line: first.line,
         column: 1,
-        evidence: file.moduleMocks.map((m) => m.specifier).join(', '),
-        message: `Mocks ${file.moduleMocks.length} modules — little real code is left under test.`,
+        evidence: specs.join(', '),
+        message: `Mocks ${specs.length} modules — little real code is left under test.`,
       },
     ];
   },

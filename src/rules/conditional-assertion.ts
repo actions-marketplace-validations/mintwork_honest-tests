@@ -9,7 +9,13 @@ export const conditionalAssertion: Rule = {
   check(file) {
     const out: RawFinding[] = [];
     for (const t of eachTest(file)) {
-      const a = t.assertions.find((x) => x.context.inConditional && !x.context.inCatch);
+      // A guard that re-tests something already asserted (`expect(r.success).toBe(false); if (!r.success) ...`)
+      // only narrows types — the branch is guaranteed to run.
+      const assertedBefore = (line: number, text: string) =>
+        t.assertions.some((p) => p.line < line && !p.context.inConditional && p.subject?.text === text);
+      const a = t.assertions.find(
+        (x) => x.context.inConditional && !x.context.inCatch && !(x.context.guards ?? []).every((g) => assertedBefore(x.line, g)),
+      );
       if (a) out.push(atAssertion(t, a, 'Assertion only runs when a condition holds — when it does not, the test passes silently.'));
     }
     return out;
