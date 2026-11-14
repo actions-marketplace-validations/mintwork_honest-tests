@@ -54,3 +54,13 @@ jobs:
             # With OIDC trusted publishing, npm signs provenance automatically.
             npm publish --access public
           fi
+
+      # Agensi (agensi.io) has no CI publishing API, so the release carries a ready-to-upload
+      # package: upload it in Creator Studio, or ask an agent connected to Agensi to update_skill.
+      - name: Build Agensi package
+        run: npm run -s build:agensi
+      - name: Attach Agensi package to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist-agensi/*.zip --clobber

@@ -43,7 +43,8 @@
     "demo:bad": "node dist/cli.js audit fixtures/bad-project --mutate fixtures/bad-project/src/pricing.ts",
     "demo:good": "node dist/cli.js audit fixtures/good-project --mutate fixtures/good-project/src/pricing.ts",
     "demo:gif": "npm run build && node scripts/demo-gif.mjs",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "build:agensi": "node scripts/build-agensi.mjs"
   },
   "keywords": [
     "testing",

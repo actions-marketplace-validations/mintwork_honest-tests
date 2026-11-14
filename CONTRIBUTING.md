@@ -75,3 +75,12 @@ is stored in the repository. npm accepts publishes of this package only from `re
 `mintwork/honest-tests` (set under the package's Settings → Trusted Publisher on npmjs.com). A version
 already on npm is skipped, and manual runs of the workflow are dry runs.
 
+
+## Publishing to Agensi
+
+[Agensi](https://agensi.io) has no API or CI publishing, so every GitHub Release gets a
+ready-to-upload package attached (`*-agensi.zip`, built by `npm run build:agensi`). The build adds
+Agensi's listing fields (`version`, `summary`, `tags`, `docs_url`) to the packaged `SKILL.md` only
+and checks Agensi's limits (100 files, 5 MB, text only). To publish or update the listing, either
+upload the ZIP in Agensi's Creator Studio, or ask an agent connected to Agensi to `update_skill`
+from it.
