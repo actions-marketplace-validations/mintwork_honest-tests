@@ -4,11 +4,11 @@
   "version": "0.1.0",
   "description": "Stop AI coding agents from writing fake tests. Skill + CLI that detects tests that can't fail and proves it with mutation testing.",
   "author": {
-    "name": "ranjan-mohanty",
-    "url": "https://github.com/ranjan-mohanty"
+    "name": "mintwork",
+    "url": "https://github.com/mintwork"
   },
-  "homepage": "https://github.com/ranjan-mohanty/honest-tests#readme",
-  "repository": "https://github.com/ranjan-mohanty/honest-tests",
+  "homepage": "https://github.com/mintwork/honest-tests#readme",
+  "repository": "https://github.com/mintwork/honest-tests",
   "license": "MIT",
   "keywords": [
     "testing",

@@ -1,8 +1,8 @@
 {
   "name": "honest-tests",
   "owner": {
-    "name": "ranjan-mohanty",
-    "url": "https://github.com/ranjan-mohanty"
+    "name": "mintwork",
+    "url": "https://github.com/mintwork"
   },
   "metadata": {
     "description": "Agent skill that stops AI coding agents from writing fake tests",

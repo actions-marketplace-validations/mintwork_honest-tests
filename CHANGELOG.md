@@ -42,4 +42,4 @@ First public release.
   `--test-cmd` in that case.
 - Mutants run one at a time.
 
-[0.1.0]: https://github.com/ranjan-mohanty/honest-tests/releases/tag/v0.1.0
+[0.1.0]: https://github.com/mintwork/honest-tests/releases/tag/v0.1.0

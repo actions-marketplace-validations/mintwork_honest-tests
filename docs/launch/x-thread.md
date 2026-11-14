@@ -57,7 +57,7 @@ Then: never weaken an assert to get green, never mock the unit, and run audit + 
 
 **7/**
 Claude Code:
-/plugin marketplace add ranjan-mohanty/honest-tests
+/plugin marketplace add mintwork/honest-tests
 
 Codex / Cursor:
 npx honest-tests init codex
@@ -65,4 +65,4 @@ npx honest-tests init cursor
 
 MIT, Node 22+, one runtime dep. pytest next.
 
-github.com/ranjan-mohanty/honest-tests
+github.com/mintwork/honest-tests

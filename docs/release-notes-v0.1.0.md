@@ -57,7 +57,7 @@ npx honest-tests init claude                      # skill into .claude/skills/
 ```
 
 ```text
-/plugin marketplace add ranjan-mohanty/honest-tests
+/plugin marketplace add mintwork/honest-tests
 /plugin install honest-tests@honest-tests
 ```
 

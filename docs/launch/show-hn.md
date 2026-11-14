@@ -4,7 +4,7 @@
 
 > Show HN: Honest-tests – your AI wrote 200 tests, many can't fail
 
-**URL:** https://github.com/ranjan-mohanty/honest-tests
+**URL:** https://github.com/mintwork/honest-tests
 
 **Text:**
 

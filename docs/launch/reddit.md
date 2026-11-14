@@ -38,7 +38,7 @@ expect(p.service).toBe('s3');                      // asserts on a literal it ju
 Install in Claude Code:
 
 ```text
-/plugin marketplace add ranjan-mohanty/honest-tests
+/plugin marketplace add mintwork/honest-tests
 /plugin install honest-tests@honest-tests
 ```
 
@@ -55,7 +55,7 @@ Real-world numbers, with no projects named:
 I tune hard against false positives, because a noisy rule just teaches the agent to add disable
 comments. Feedback very welcome, especially "this flagged my test and it's actually fine".
 
-Repo: https://github.com/ranjan-mohanty/honest-tests (MIT)
+Repo: https://github.com/mintwork/honest-tests (MIT)
 
 ---
 
@@ -99,4 +99,4 @@ their own tests before claiming they're done. That's the original motivation.
 It has one runtime dependency (`@babel/parser`), needs Node 22+, and is MIT licensed. A pytest adapter
 is next. The rule engine is language-neutral.
 
-https://github.com/ranjan-mohanty/honest-tests
+https://github.com/mintwork/honest-tests
