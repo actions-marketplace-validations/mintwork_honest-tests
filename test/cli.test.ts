@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, existsSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -138,5 +139,14 @@ describe('error excerpts (field-test regression)', () => {
     expect(shown.split('\n')[0]).toBe('Error: browserType.launch: Executable does not exist');
     expect(shown).toContain('Test Files  1 failed');
     expect(shown).toContain('62 lines');
+  });
+});
+
+describe('dist/cli.js', () => {
+  it('exits quietly when stdout is closed early (`honest-tests audit | head`)', () => {
+    // `true` exits without reading, so every write from the CLI hits a closed pipe.
+    const r = spawnSync('sh', ['-c', `node "${join(ROOT, 'dist', 'cli.js')}" audit fixtures/bad-project | true`], { cwd: ROOT, encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(r.stderr).toBe('');
   });
 });
