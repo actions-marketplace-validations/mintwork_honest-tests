@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.2] - 2026-11-14
+
+### Changed
+
+- README badges consolidated into one row; the npm downloads badge is removed until npm reports
+  download counts for the new package (it showed "package not found or too new").
+- Published from CI with npm trusted publishing (OIDC); no npm token is stored.
+
 ## [0.1.1] - 2026-11-14
 
 ### Changed
@@ -52,5 +60,6 @@ First public release.
   `--test-cmd` in that case.
 - Mutants run one at a time.
 
+[0.1.2]: https://github.com/mintwork/honest-tests/releases/tag/v0.1.2
 [0.1.1]: https://github.com/mintwork/honest-tests/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mintwork/honest-tests/releases/tag/v0.1.0

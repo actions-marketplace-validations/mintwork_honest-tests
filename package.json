@@ -1,6 +1,6 @@
 {
   "name": "@mintwork/honest-tests",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Stop AI coding agents from writing fake tests. An agent skill + CLI that detects tests that can't fail, and proves it with mutation testing.",
   "repository": {
     "type": "git",
