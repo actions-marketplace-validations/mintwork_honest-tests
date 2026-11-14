@@ -167,6 +167,79 @@ describe('asserts-on-own-literal', () => {
     expect(hits(src)).toEqual([6, 7, 8, 9, 10, 11].map((l) => `asserts-on-own-literal@${l}`));
   });
 
+  it('resolves quoted and numeric keys, string indexes, later spreads and literal-to-literal comparisons', () => {
+    const src = [
+      `import { equal } from 'node:assert';`,
+      `it('x', () => {`,
+      `  const base = { x: 1 };`,
+      `  const p = { 'a-b': 1, 2: 'two', a: 1, ...base };`,
+      `  const q = { a: 1 };`,
+      `  const s = 'ab';`,
+      `  expect(p['a-b']).toBe(1);`,
+      `  expect(p[2]).toBe('two');`,
+      `  expect(p.a).toBe(1);`,
+      `  expect(s[0]).toBe('a');`,
+      `  expect(p).toEqual(q);`,
+      `  equal(q.a, 1);`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual([8, 9, 10, 11, 12, 13].map((l) => `asserts-on-own-literal@${l}`));
+  });
+
+  it('names the literal binding, not a same-named property', () => {
+    const [f] = scan(`it('x', () => {\n  const a = 1;\n  const p = { a: 2, b: a };\n  expect(p.a).toBe(2);\n});`);
+    expect(f?.message).toContain('literal `p` built on line 4');
+  });
+
+  it('accepts reads of prototype members on strings and arrays, and missing nested properties', () => {
+    const src = [
+      `it('x', () => {`,
+      `  const p = { a: 'x', list: [1] };`,
+      `  expect(p.a.foo).toBeUndefined();`,
+      `  expect(p.list.foo).toBeUndefined();`,
+      `  expect(p.missing.deep).toBeUndefined();`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual([]);
+  });
+
+  it('accepts operators and templates that mix a literal with outside values', () => {
+    const src = [
+      `it('x', () => {`,
+      `  const p = { a: 1 };`,
+      `  expect(p.a + offset).toBe(2);`,
+      `  expect(p.a || fallback()).toBe(1);`,
+      `  expect(flag ? p.a : 2).toBe(1);`,
+      `  expect(\`\${p.a}\${suffix}\`).toBe('1x');`,
+      `  expect(!ready && p.a).toBe(1);`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual([]);
+  });
+
+  it('ignores same-named properties, object keys and type positions when looking for other uses', () => {
+    const src = [
+      `it('x', () => {`,
+      `  const p = { a: 1 };`,
+      `  run(other.p, { p: 1 });`,
+      `  type T = typeof p;`,
+      `  expect(p.a).toBe(1);`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual(['asserts-on-own-literal@6']);
+  });
+
+  it('treats catch parameters, destructured names and function declarations as rebinding the name', () => {
+    const src = [
+      `it('a', () => { const p = { a: 1 }; try { run(); } catch (p) { log(p); } expect(p.a).toBe(1); });`,
+      `it('b', () => { const p = { a: 1 }; run(({ p }) => p); expect(p.a).toBe(1); });`,
+      `it('c', () => { const p = { a: 1 }; run(() => { const [p2, ...[p]] = load(); }); expect(p.a).toBe(1); });`,
+      `it('d', () => { const p = { a: 1 }; run(() => { function p() {} }); expect(p.a).toBe(1); });`,
+      `it('e', () => { let p; p = { a: 1 }; expect(p.a).toBe(1); });`,
+    ].join('\n');
+    expect(hits(src).filter((h) => h.startsWith('asserts-on-own-literal'))).toEqual([]);
+  });
+
   it('accepts a name bound more than once in the test (shadowing is not followed)', () => {
     const src = `it('x', () => {\n  const p = { a: 1 };\n  expect(p.a).toBe(1);\n  run((p) => p);\n});`;
     expect(hits(src)).toEqual([]);
