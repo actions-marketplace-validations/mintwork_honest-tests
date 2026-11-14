@@ -1,0 +1,338 @@
+import { describe, expect, it } from 'vitest';
+import { rules } from '../src/rules/index.js';
+import { hits, scan } from './support.js';
+
+describe('no-assertions', () => {
+  it('flags a test that only calls the code', () => {
+    expect(hits(`it('adds', () => {\n  add(1, 2);\n});`)).toEqual(['no-assertions@2']);
+  });
+
+  it('accepts expect, assert, helper assertions and supertest-style .expect()', () => {
+    const src = [
+      `it('a', () => { expect(add(1, 2)).toBe(3); });`,
+      `it('b', () => { assert.equal(add(1, 2), 3); });`,
+      `it('c', () => { expectValidUser(makeUser()); });`,
+      `it('d', async () => { await request(app).get('/').expect(200); });`,
+      `it('e', () => { expect.hasAssertions(); run(); });`,
+    ].join('\n');
+    expect(hits(src)).toEqual([]);
+  });
+
+  it('ignores todo and skipped tests (skips are reported separately)', () => {
+    expect(hits(`it.todo('later');\nit.skip('off', () => { add(1, 2); });`)).toEqual(['skipped-test@3']);
+  });
+
+  it('understands it.each tables', () => {
+    expect(hits(`it.each([[1, 2]])('adds %i', (a, b) => {\n  add(a, b);\n});`)).toEqual(['no-assertions@2']);
+  });
+});
+
+describe('tautological-assertion', () => {
+  it('flags comparing a value with itself', () => {
+    expect(hits(`it('x', () => {\n  const r = add(1, 2);\n  expect(r).toBe(r);\n});`)).toEqual(['tautological-assertion@4']);
+  });
+
+  it('flags recomputing the same call as the expected value', () => {
+    expect(hits(`it('x', () => {\n  expect(format(5)).toEqual(format(5));\n});`)).toEqual(['tautological-assertion@3']);
+  });
+
+  it('flags asserting on a constant', () => {
+    expect(hits(`it('x', () => {\n  expect(true).toBe(true);\n  assert(1);\n});`)).toEqual(['tautological-assertion@3', 'tautological-assertion@4']);
+  });
+
+  it('flags an expected value derived from the actual value', () => {
+    expect(hits(`it('x', () => {\n  const list = build();\n  expect(list).toHaveLength(list.length);\n});`)).toEqual([
+      'tautological-assertion@4',
+    ]);
+  });
+
+  it('leaves matcher-less constants to never-failing-assertion', () => {
+    expect(hits(`it('x', () => {\n  expect(true).toBeTruthy;\n});`)).toEqual(['never-failing-assertion@3']);
+  });
+
+  it('only treats equality/length matchers on identifiers and members as derived', () => {
+    const src = [
+      `it('x', () => {`,
+      `  expect(price).toBeGreaterThan(price.floor);`,
+      `  expect(load()).toBe(load().cached);`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual([]);
+  });
+
+  it('does not flag a real comparison', () => {
+    expect(hits(`it('x', () => {\n  expect(add(1, 2)).toBe(3);\n  expect(user.name).toEqual(expected.name);\n});`)).toEqual([]);
+  });
+});
+
+describe('asserts-on-mock', () => {
+  it('flags asserting on the value a vi.fn was told to return', () => {
+    const src = `it('x', () => {\n  const getUser = vi.fn().mockReturnValue({ id: 1 });\n  expect(getUser()).toEqual({ id: 1 });\n});`;
+    expect(hits(src)).toEqual(['asserts-on-mock@4']);
+  });
+
+  it('follows a result alias and mockResolvedValue', () => {
+    const src = `it('x', async () => {\n  fetchUser.mockResolvedValue(u);\n  const r = await fetchUser(1);\n  expect(r).toBe(u);\n});`;
+    expect(hits(src)).toEqual(['asserts-on-mock@5']);
+  });
+
+  it('flags spyOn targets and vi.mocked()', () => {
+    const src = [
+      `it('x', () => {`,
+      `  vi.spyOn(api, 'get').mockReturnValue(5);`,
+      `  expect(api.get()).toBe(5);`,
+      `});`,
+      `it('y', () => {`,
+      `  vi.mocked(load).mockReturnValue(1);`,
+      `  expect(load()).toBe(1);`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual(['asserts-on-mock@4', 'asserts-on-mock@8']);
+  });
+
+  it('flags asserting on mock.results', () => {
+    const src = `it('x', () => {\n  const getUser = vi.fn(() => u);\n  getUser();\n  expect(getUser.mock.results[0].value).toBe(u);\n});`;
+    expect(hits(src)).toEqual(['asserts-on-mock@5']);
+  });
+
+  it('does not flag the real unit, its results, or unconfigured mocks', () => {
+    const src = [
+      `it('x', () => {`,
+      `  const getUser = vi.fn().mockReturnValue({ name: 'Ada' });`,
+      `  const log = vi.fn();`,
+      `  const svc = new Greeter(getUser, log);`,
+      `  const greeting = svc.greet(1);`,
+      `  expect(svc.greet(1)).toBe('Hello, Ada');`,
+      `  expect(greeting).toBe('Hello, Ada');`,
+      `  expect(svc.lastGreeted).toBe(1);`,
+      `  expect(log()).toBeUndefined();`,
+      `  expect(getUser).toHaveBeenCalledWith(1);`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual([]);
+  });
+
+  it('allows interaction assertions and testing the real unit with a mocked dependency', () => {
+    const src = [
+      `it('x', async () => {`,
+      `  const repo = { find: vi.fn().mockResolvedValue({ name: 'Ada' }) };`,
+      `  const svc = new UserService(repo);`,
+      `  expect(await svc.greet(1)).toBe('Hello, Ada');`,
+      `  expect(repo.find).toHaveBeenCalledWith(1);`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual([]);
+  });
+});
+
+describe('mocked-unit-under-test', () => {
+  it('flags mocking the module the test file is named after', () => {
+    const src = `import { total } from '../src/cart';\nvi.mock('../src/cart');\nit('x', () => { expect(total([])).toBe(0); });`;
+    expect(hits(src, 'test/cart.test.ts')).toEqual(['mocked-unit-under-test@3']);
+  });
+
+  it('downgrades partial mocks to a warning', () => {
+    const src = `import { total } from './cart';\nvi.mock('./cart', async (importOriginal) => ({ ...(await importOriginal()), tax: vi.fn() }));\nit('x', () => { expect(total([])).toBe(0); });`;
+    const [f] = scan(src, 'src/cart.spec.ts');
+    expect(f?.ruleId).toBe('mocked-unit-under-test');
+    expect(f?.severity).toBe('warning');
+  });
+
+  it('flags spying on and replacing an export of the unit', () => {
+    const src = `import * as cart from '../src/cart';\nit('x', () => {\n  vi.spyOn(cart, 'total').mockReturnValue(3);\n  expect(cart.total([])).toBe(3);\n});`;
+    expect(hits(src, 'test/cart.test.ts')).toEqual(['mocked-unit-under-test@4', 'asserts-on-mock@5']);
+  });
+
+  it('allows mocking dependencies', () => {
+    const src = `import { total } from '../src/cart';\nvi.mock('../src/tax');\nvi.mock('node:fs');\nit('x', () => { expect(total([])).toBe(0); });`;
+    expect(hits(src, 'test/cart.test.ts')).toEqual([]);
+  });
+});
+
+describe('excessive-mocking', () => {
+  it('warns when five or more modules are mocked', () => {
+    const mocks = ['a', 'b', 'c', 'd', 'e'].map((m) => `vi.mock('./${m}');`).join('\n');
+    expect(hits(`${mocks}\nit('x', () => { expect(run()).toBe(1); });`)).toEqual(['excessive-mocking@2']);
+  });
+
+  it('is quiet below the threshold', () => {
+    const mocks = ['a', 'b', 'c', 'd'].map((m) => `vi.mock('./${m}');`).join('\n');
+    expect(hits(`${mocks}\nit('x', () => { expect(run()).toBe(1); });`)).toEqual([]);
+  });
+});
+
+describe('snapshot-only', () => {
+  it('flags tests whose only assertion is a snapshot', () => {
+    expect(hits(`it('renders', () => {\n  expect(render()).toMatchSnapshot();\n});`)).toEqual(['snapshot-only@2']);
+  });
+
+  it('allows a snapshot alongside a real assertion', () => {
+    expect(hits(`it('renders', () => {\n  const html = render();\n  expect(html).toContain('Total: $35');\n  expect(html).toMatchSnapshot();\n});`)).toEqual(
+      [],
+    );
+  });
+});
+
+describe('swallowed-assertion', () => {
+  it('flags assertions inside a try whose catch swallows', () => {
+    expect(hits(`it('x', () => {\n  try {\n    expect(f()).toBe(1);\n  } catch (e) {\n    console.log(e);\n  }\n});`)).toEqual([
+      'swallowed-assertion@4',
+    ]);
+  });
+
+  it('allows a catch that rethrows, and try/finally', () => {
+    const src = [
+      `it('x', () => {`,
+      `  try { expect(f()).toBe(1); } catch (e) { cleanup(); throw e; }`,
+      `});`,
+      `it('y', () => {`,
+      `  try { expect(f()).toBe(1); } finally { cleanup(); }`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual([]);
+  });
+});
+
+describe('catch-only-assertion', () => {
+  it('flags assertions that only run if the code throws', () => {
+    expect(hits(`it('x', () => {\n  try {\n    parse('');\n  } catch (e) {\n    expect(e.message).toBe('empty');\n  }\n});`)).toEqual([
+      'catch-only-assertion@6',
+    ]);
+  });
+
+  it('accepts expect.assertions, a fail() in the try, or toThrow', () => {
+    const src = [
+      `it('a', () => {`,
+      `  expect.assertions(1);`,
+      `  try { parse(''); } catch (e) { expect(e.message).toBe('empty'); }`,
+      `});`,
+      `it('b', () => {`,
+      `  try { parse(''); expect.fail('should throw'); } catch (e) { expect(e.message).toBe('empty'); }`,
+      `});`,
+      `it('c', () => {`,
+      `  expect(() => parse('')).toThrow('empty');`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual([]);
+  });
+});
+
+describe('never-failing-assertion', () => {
+  it('flags a matcher that is never called', () => {
+    expect(hits(`it('x', () => {\n  expect(load()).toBeTruthy;\n});`)).toEqual(['never-failing-assertion@3']);
+  });
+
+  it('flags a bare expect()', () => {
+    expect(hits(`it('x', () => {\n  expect(load());\n});`)).toEqual(['never-failing-assertion@3']);
+  });
+
+  it('flags always-true checks', () => {
+    const src = [
+      `it('x', () => {`,
+      `  expect(typeof value).toBeDefined();`,
+      `  expect({ a: 1 }).toBeTruthy();`,
+      `  expect(items.length).toBeGreaterThanOrEqual(0);`,
+      `  expect(new Cart()).toBeDefined();`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual(['never-failing-assertion@3', 'never-failing-assertion@4', 'never-failing-assertion@5', 'never-failing-assertion@6']);
+  });
+
+  it('flags un-awaited async matchers but not awaited or returned ones', () => {
+    const src = [
+      `it('x', () => {`,
+      `  expect(load()).resolves.toBe(1);`,
+      `});`,
+      `it('y', async () => {`,
+      `  await expect(load()).resolves.toBe(1);`,
+      `});`,
+      `it('z', () => {`,
+      `  return expect(load()).rejects.toThrow('nope');`,
+      `});`,
+      `it('w', () => expect(load()).resolves.toBe(1));`,
+    ].join('\n');
+    expect(hits(src)).toEqual(['never-failing-assertion@3']);
+  });
+
+  it('does not flag negated or meaningful checks', () => {
+    const src = [
+      `it('x', () => {`,
+      `  expect(typeof value).not.toBeDefined();`,
+      `  expect(items.length).toBeGreaterThan(0);`,
+      `  expect(items.length).toBeGreaterThanOrEqual(1);`,
+      `  expect(total).toBeGreaterThanOrEqual(0);`,
+      `  expect(items.length).toBeLessThanOrEqual(-1);`,
+      `  expect(user).toBeTruthy();`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual([]);
+  });
+
+  it('flags length > negative number', () => {
+    expect(hits(`it('x', () => {\n  expect(list.size).toBeGreaterThan(-1);\n});`)).toEqual(['never-failing-assertion@3']);
+  });
+
+  it('accepts chai-style property assertions', () => {
+    expect(hits(`it('x', () => {\n  expect(isValid('a')).to.be.true;\n});`)).toEqual([]);
+  });
+});
+
+describe('conditional-assertion', () => {
+  it('flags assertions behind an if', () => {
+    expect(hits(`it('x', () => {\n  const r = find();\n  if (r) {\n    expect(r.id).toBe(1);\n  }\n});`)).toEqual(['conditional-assertion@5']);
+  });
+
+  it('flags assertions behind &&', () => {
+    expect(hits(`it('x', () => {\n  const r = find();\n  r && expect(r.id).toBe(1);\n});`)).toEqual(['conditional-assertion@4']);
+  });
+});
+
+describe('focused-test / skipped-test', () => {
+  it('flags .only, fit and fdescribe as errors', () => {
+    const src = `it.only('a', () => { expect(f()).toBe(1); });\nfit('b', () => { expect(f()).toBe(1); });\nfdescribe('s', () => {});`;
+    const found = scan(src);
+    expect(found.map((f) => `${f.ruleId}@${f.line}`)).toEqual(['focused-test@2', 'focused-test@3', 'focused-test@4']);
+    expect(new Set(found.map((f) => f.severity))).toEqual(new Set(['error']));
+  });
+
+  it('flags .skip, xit and xdescribe as warnings, but not skipIf', () => {
+    const src = `it.skip('a', () => {});\nxit('b', () => {});\nxdescribe('s', () => {});\nit.skipIf(isWindows)('c', () => { expect(f()).toBe(1); });`;
+    const found = scan(src);
+    expect(found.map((f) => `${f.ruleId}@${f.line}`)).toEqual(['skipped-test@2', 'skipped-test@3', 'skipped-test@4']);
+    expect(new Set(found.map((f) => f.severity))).toEqual(new Set(['warning']));
+  });
+});
+
+describe('suppression comments', () => {
+  it('honors disable-next-line, disable-line and file-level disable', () => {
+    const src = [
+      `it('a', () => {`,
+      `  // honest-tests-disable-next-line tautological-assertion`,
+      `  expect(true).toBe(true);`,
+      `  expect(true).toBe(true); // honest-tests-disable-line`,
+      `});`,
+      `it('b', () => {`,
+      `  expect(1).toBe(1);`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual(['tautological-assertion@8']);
+    expect(hits(`/* honest-tests-disable tautological-assertion */\n${src}`)).toEqual([]);
+  });
+
+  it('only suppresses the listed rule', () => {
+    const src = `// honest-tests-disable-next-line snapshot-only\nit('a', () => { run(); });`;
+    expect(hits(src)).toEqual(['no-assertions@3']);
+  });
+});
+
+describe('rule catalog', () => {
+  it('has unique kebab-case ids with descriptions and fixes', () => {
+    const ids = rules.map((r) => r.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const r of rules) {
+      expect(r.id).toMatch(/^[a-z]+(-[a-z]+)*$/);
+      expect(r.description.length).toBeGreaterThan(20);
+      expect(r.fix.length).toBeGreaterThan(20);
+    }
+  });
+});
