@@ -9,6 +9,7 @@ npm install        # also builds dist/ via the prepare script
 npm test           # vitest: rules, fixtures, CLI, and real mutation runs on fixtures/
 npm run typecheck
 npm run dogfood    # honest-tests must report zero findings on its own tests
+npm run demo:gif   # re-render docs/demo.gif from the real CLI output (Playwright + Google Chrome + ffmpeg)
 ```
 
 Node 20+. Runtime dependencies are deliberately minimal (`@babel/parser` only) — please don't add more

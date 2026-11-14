@@ -41,6 +41,7 @@
     "dogfood": "node dist/cli.js audit test",
     "demo:bad": "node dist/cli.js audit fixtures/bad-project --mutate fixtures/bad-project/src/pricing.ts",
     "demo:good": "node dist/cli.js audit fixtures/good-project --mutate fixtures/good-project/src/pricing.ts",
+    "demo:gif": "npm run build && node scripts/demo-gif.mjs",
     "prepare": "npm run build"
   },
   "keywords": [
@@ -63,6 +64,7 @@
   "devDependencies": {
     "@babel/types": "^7.29.0",
     "@types/node": "^20.19.0",
+    "playwright-core": "^1.65.1",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }

@@ -1,17 +1,19 @@
 # honest-tests
 
-### Your AI wrote 200 tests. 140 of them can't fail.
+### Your AI wrote 200 tests. Many of them can't fail.
 
 **honest-tests** is an agent skill + CLI that stops Claude Code, Codex, Cursor and friends from writing
 fake tests — and proves which of your existing tests are fake by mutating your code and watching them
 stay green.
 
+<p align="center">
+  <img src="docs/demo.gif" width="1200" alt="honest-tests audit finds 11 of 15 tests that can't fail in a sample project; honest-tests mutate then shows 22 of 26 code changes survive the test suite, a 15.4% mutation score">
+</p>
+
 ```bash
 npx honest-tests audit .                       # find tests that can't fail
 npx honest-tests mutate src/pricing.ts         # prove it: break the code, see who notices
 ```
-
-<!-- TODO: replace with an asciinema/GIF of `npm run demo:bad` before launch -->
 
 ---
 
@@ -116,7 +118,8 @@ $ npx honest-tests audit test && npx honest-tests mutate src/pricing.ts
   ✓ Every mutation was caught. These tests actually test something.
 ```
 
-Both projects live in [`fixtures/`](fixtures) — run `npm run demo:bad` / `npm run demo:good` yourself.
+Both projects live in [`fixtures/`](fixtures) — run `npm run demo:bad` / `npm run demo:good` yourself
+(`npm run demo:gif` re-renders the GIF above from the real CLI output).
 
 ---
 
