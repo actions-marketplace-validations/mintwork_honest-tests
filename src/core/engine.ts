@@ -77,6 +77,12 @@ function toPosix(p: string): string {
   return p.split(sep).join('/');
 }
 
+/** Path relative to cwd, or absolute when the file is outside it (`../../../tmp/x` helps nobody). */
+export function displayPath(cwd: string, abs: string): string {
+  const rel = toPosix(relative(cwd, abs));
+  return !rel || rel.startsWith('../') || rel === '..' ? toPosix(abs) : rel;
+}
+
 export function discoverTestFiles(paths: string[], cwd: string, ignore: string[] = []): string[] {
   const ignoreRes = ignore.map(globToRegExp);
   const isIgnored = (abs: string) => {
@@ -184,7 +190,7 @@ export function audit(opts: AuditOptions, version = '0.0.0'): AuditResult {
 
   for (const abs of files) {
     const adapter = adapterFor(abs)!;
-    const display = toPosix(relative(cwd, abs)) || abs;
+    const display = displayPath(cwd, abs);
     if (adapter.planned) {
       unsupported.push({ file: display, language: adapter.id });
       continue;

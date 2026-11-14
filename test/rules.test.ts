@@ -549,6 +549,14 @@ describe('field-test regressions', () => {
     });
   });
 
+  describe('mocked-unit-under-test', () => {
+    it('treats a factory that calls its importOriginal parameter (any name) as a partial mock', () => {
+      const src = `import { total } from './cart';\nvi.mock('./cart', async (orig) => ({ ...(await orig()), tax: vi.fn() }));\nit('x', () => { expect(total([])).toBe(0); });`;
+      const [f] = scan(src, 'src/cart.spec.ts');
+      expect(f?.severity).toBe('warning');
+    });
+  });
+
   describe('excessive-mocking', () => {
     it('counts each mocked module once even when re-mocked per test', () => {
       const mocks = [`vi.mock('./a');`, `vi.mock('./b');`, `vi.mock('./c');`, `it('x', () => { vi.doMock('./d'); expect(run()).toBe(1); });`, `it('y', () => { vi.doMock('./d'); expect(run()).toBe(2); });`];

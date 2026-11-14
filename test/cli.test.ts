@@ -29,6 +29,10 @@ describe('honest-tests audit', () => {
       expect(r.code).toBe(0);
       expect(r.stdout).toContain('No test files found');
       expect(r.stdout).not.toContain('no fake tests found');
+      // files outside cwd are shown by absolute path, not ../../..
+      writeFileSync(join(dir, 'a.test.ts'), "it('a', () => { run(); });\n");
+      const outside = await cli(['audit', dir, '--json']);
+      expect(JSON.parse(outside.stdout).findings[0].file).toBe(join(dir, 'a.test.ts').split('\\').join('/'));
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

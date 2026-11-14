@@ -106,7 +106,12 @@ describe('test command for mutation runs (field-test regressions)', () => {
 
   it('adds --run to a bare `vitest` script so the baseline does not hang in watch mode', () => {
     expect(withScripts({ test: 'vitest' }, ['a.test.ts'])).toBe('npm test --silent -- --run a.test.ts');
-    expect(withScripts({ test: 'vitest run --coverage' }, ['a.test.ts'])).toBe('npm test --silent -- a.test.ts');
+    expect(withScripts({ test: 'vitest run' }, ['a.test.ts'])).toBe('npm test --silent -- a.test.ts');
+  });
+
+  it('turns coverage off, so subset runs do not trip global coverage thresholds', () => {
+    expect(withScripts({ test: 'vitest run --coverage' }, ['a.test.ts'])).toBe('npm test --silent -- --coverage.enabled=false a.test.ts');
+    expect(withScripts({ test: 'jest --coverage' }, ['a.test.ts'])).toBe('npm test --silent -- --coverage=false a.test.ts');
   });
 
   it('follows `npm run x` delegation and runs the leaf script directly', () => {

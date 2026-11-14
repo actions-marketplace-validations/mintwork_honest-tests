@@ -54,6 +54,26 @@ export interface TestScript {
   simple: boolean;
   /** `test` only delegates to another script (`npm run test:unit`). */
   delegated: boolean;
+  /** Coverage is switched on (`--coverage` in the script, or `enabled: true` in the runner config). */
+  coverage: boolean;
+}
+
+const RUNNER_CONFIGS = [
+  'vitest.config.ts', 'vitest.config.mts', 'vitest.config.js', 'vitest.config.mjs',
+  'vite.config.ts', 'vite.config.mts', 'vite.config.js', 'vite.config.mjs',
+  'jest.config.js', 'jest.config.ts', 'jest.config.mjs', 'jest.config.cjs',
+];
+
+function coverageEnabledInConfig(root: string): boolean {
+  for (const name of RUNNER_CONFIGS) {
+    try {
+      const text = readFileSync(join(root, name), 'utf8');
+      if (/coverage\s*:\s*\{[^}]*enabled\s*:\s*true|collectCoverage\s*:\s*true/.test(text)) return true;
+    } catch {
+      /* not there */
+    }
+  }
+  return false;
 }
 
 /** Follow `"test": "npm run test:unit"` chains to the script that runs the test runner. */
@@ -73,7 +93,13 @@ export function resolveTestScript(root: string): TestScript {
     delegated = true;
   }
   const runner = /\bvitest\b/.test(script) ? 'vitest' : /\bjest\b/.test(script) ? 'jest' : 'unknown';
-  return { runner, script: script.trim(), simple: !/&&|\|\||;|\||`|\$\(/.test(script), delegated };
+  return {
+    runner,
+    script: script.trim(),
+    simple: !/&&|\|\||;|\||`|\$\(/.test(script),
+    delegated,
+    coverage: /--coverage\b(?!=false|\.enabled=false)/.test(script) || coverageEnabledInConfig(root),
+  };
 }
 
 /** Which runner a package.json test script uses — lets us pass test files through. */
@@ -92,7 +118,9 @@ export function scopedTestCommand(ts: TestScript, files: string[]): string | nul
   if (ts.runner === 'unknown') return null;
   // A bare `vitest` script starts a watcher; mutation runs must exit.
   const needsRun = ts.runner === 'vitest' && !/\bvitest\s+(run|bench)\b|--run\b|--watch=false|--no-watch\b/.test(ts.script);
-  const extra = [...(needsRun ? ['--run'] : []), ...files];
+  // Coverage only slows mutant runs down, and global thresholds fail when we run a subset of tests.
+  const noCoverage = ts.coverage ? [ts.runner === 'vitest' ? '--coverage.enabled=false' : '--coverage=false'] : [];
+  const extra = [...(needsRun ? ['--run'] : []), ...noCoverage, ...files];
   if (!ts.delegated) return extra.length ? `npm test --silent -- ${extra.join(' ')}` : 'npm test --silent';
   if (!ts.simple) return null;
   return [ts.script, ...extra].join(' ');

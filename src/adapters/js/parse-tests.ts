@@ -283,6 +283,20 @@ function containsFailOrThrow(source: string, node: Node | null | undefined): boo
   return found;
 }
 
+/** `vi.mock('./x', async (orig) => ({ ...(await orig()), f }))`: the factory pulls in the real module. */
+function factoryCallsItsParam(factory: Node | undefined): boolean {
+  if (!factory || !isFunction(factory)) return false;
+  const param = factory.params[0];
+  if (!param || param.type !== 'Identifier') return false;
+  let found = false;
+  walk(factory.body as Node, (n) => {
+    if (found) return false;
+    if (isCall(n) && n.callee.type === 'Identifier' && n.callee.name === param.name) found = true;
+    return undefined;
+  });
+  return found;
+}
+
 /** What the file tells us about assertion entry points beyond `expect`/`assert`. */
 interface AssertVocab {
   /** Local names bound to assertion functions: `import { equal as eq } from 'node:assert'` -> eq => equal. */
@@ -777,7 +791,7 @@ export function parseJsTestFile(path: string, source: string): TestFileModel {
         if (spec) {
           const factory = node.arguments[1] as Node | undefined;
           const factoryText = factory ? textOf(source, factory) : '';
-          const partial = /importOriginal|requireActual|importActual/.test(factoryText);
+          const partial = /importOriginal|requireActual|importActual/.test(factoryText) || factoryCallsItsParam(factory);
           moduleMocks.push({
             specifier: spec,
             line: node.loc!.start.line,
