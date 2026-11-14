@@ -1,0 +1,10 @@
+{
+  "name": "honest-tests",
+  "version": "0.1.0",
+  "description": "Stop AI coding agents from writing fake tests. Skill + CLI that detects tests that can't fail and proves it with mutation testing.",
+  "author": {
+    "name": "honest-tests contributors"
+  },
+  "license": "MIT",
+  "keywords": ["testing", "test-smells", "mutation-testing", "vitest", "jest"]
+}

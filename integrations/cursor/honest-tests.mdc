@@ -1,0 +1,24 @@
+---
+description: Write and audit tests that actually verify behavior (no fake tests). Apply when writing, editing, or reviewing test files.
+globs: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/test_*.py", "**/*_test.py"]
+alwaysApply: false
+---
+
+# Honest tests
+
+A test is honest only if it **fails when the behavior it names is broken**.
+
+Rules:
+- Never weaken an assertion, change an expected value, `.skip` a test, or wrap an assertion in `try/catch` to get green. When a test fails, first suspect the code.
+- Expected values come from a spec or hand calculation — never `expect(f(x)).toBe(f(x))`, never output copied unverified.
+- Never mock the module under test; mock only boundaries (network, DB, clock, randomness, fs).
+- Assert on what the unit produces, not on what a mock was told to return. Use mocks for `toHaveBeenCalledWith` checks.
+- Prefer exact matchers over `toBeDefined()` / `toBeTruthy()`; no snapshot-only tests; `await` `.resolves`/`.rejects`; use `expect(() => f()).toThrow(Type)` for errors.
+- Test boundaries (`>=` vs `>`), empty inputs, and error paths. Never commit `.only`.
+
+Before saying tests are done, run in the terminal and fix all errors:
+
+```bash
+npx honest-tests audit <test files>
+npx honest-tests mutate <source file>   # add assertions for each surviving mutant
+```

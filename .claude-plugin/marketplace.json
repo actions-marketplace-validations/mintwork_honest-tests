@@ -1,0 +1,19 @@
+{
+  "name": "honest-tests",
+  "owner": {
+    "name": "honest-tests contributors"
+  },
+  "metadata": {
+    "description": "Agent skill that stops AI coding agents from writing fake tests",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "honest-tests",
+      "description": "Write and audit tests that actually verify behavior: detect fake tests and prove them with mutation testing",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/honest-tests"]
+    }
+  ]
+}
