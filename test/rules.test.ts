@@ -533,6 +533,21 @@ describe('field-test regressions', () => {
       expect(hits(src)).toEqual([]);
     });
 
+    it('allows a narrowing guard nested inside another excused guard', () => {
+      const src = [
+        `it('x', () => {`,
+        `  const r = schema.safeParse('a');`,
+        `  expect(r.success).toBe(false);`,
+        `  if (!r.success) {`,
+        `    const issue = r.error.issues[0];`,
+        `    expect(issue.code).toBe('invalid_type');`,
+        `    if (issue.code === 'invalid_type') expect(issue.expected).toBe('Test');`,
+        `  }`,
+        `});`,
+      ].join('\n');
+      expect(hits(src)).toEqual([]);
+    });
+
     it('still flags a guard that was never asserted, and `expect() && expect()`', () => {
       const src = [
         `it('x', () => {`,

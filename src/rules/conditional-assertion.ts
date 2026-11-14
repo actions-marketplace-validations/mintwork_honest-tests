@@ -1,4 +1,4 @@
-import type { RawFinding, Rule } from '../core/types.js';
+import type { Assertion, RawFinding, Rule } from '../core/types.js';
 import { atAssertion, eachTest } from './helpers.js';
 
 export const conditionalAssertion: Rule = {
@@ -10,12 +10,19 @@ export const conditionalAssertion: Rule = {
     const out: RawFinding[] = [];
     for (const t of eachTest(file)) {
       // A guard that re-tests something already asserted (`expect(r.success).toBe(false); if (!r.success) ...`)
-      // only narrows types — the branch is guaranteed to run.
-      const assertedBefore = (line: number, text: string) =>
-        t.assertions.some((p) => p.line < line && !p.context.inConditional && p.subject?.text === text);
-      const a = t.assertions.find(
-        (x) => x.context.inConditional && !x.context.inCatch && !(x.context.guards ?? []).every((g) => assertedBefore(x.line, g)),
-      );
+      // only narrows types — the branch is guaranteed to run. The earlier assertion may itself sit behind
+      // such a narrowing guard (nested `if (!r.success) { expect(i.code)...; if (i.code === 'x') ... }`).
+      const memo = new Map<Assertion, boolean>();
+      const runsAlways = (x: Assertion): boolean => {
+        if (!x.context.inConditional) return true;
+        let r = memo.get(x);
+        if (r === undefined) {
+          r = (x.context.guards ?? []).every((g) => t.assertions.some((p) => p.line < x.line && p.subject?.text === g && runsAlways(p)));
+          memo.set(x, r);
+        }
+        return r;
+      };
+      const a = t.assertions.find((x) => x.context.inConditional && !x.context.inCatch && !runsAlways(x));
       if (a) out.push(atAssertion(t, a, 'Assertion only runs when a condition holds — when it does not, the test passes silently.'));
     }
     return out;
