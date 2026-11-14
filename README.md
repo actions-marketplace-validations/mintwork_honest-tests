@@ -217,8 +217,10 @@ it('loads', () => { require('../src/plugin'); });
 
 **Safe by design:** the project is copied to a temp dir (`node_modules` symlinked), mutants are written
 only to the copy and restored after every run, and the copy is removed at the end — even on Ctrl-C. A red
-baseline aborts the run. Only test files that import the target are run (vitest/jest), so it's fast:
-26 mutants in ~12s on the fixture.
+baseline aborts the run. Only test files that import the target — directly or through other local
+modules — are run (vitest/jest), once and with coverage off, so it's fast: 26 mutants in ~12s on the
+fixture. Imports through path aliases (`@/lib/x`) aren't followed yet; pass `--test-cmd` if your tests
+reach the target that way.
 
 ```text
 --test-cmd "<cmd>"   custom command; {files} expands to related test files

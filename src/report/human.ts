@@ -60,8 +60,9 @@ export function formatMutation(m: MutationReport): string {
   const out: string[] = [];
   out.push('', c.bold(`Mutation check: ${m.target}`));
   out.push(c.dim(`  command: ${m.command}`));
-  if (m.relatedTests.length) out.push(c.dim(`  tests:   ${m.relatedTests.join(', ')}`));
-  else out.push(c.yellow('  no test file imports this target directly; ran the full test command'));
+  const shown = m.relatedTests.slice(0, 6).join(', ') + (m.relatedTests.length > 6 ? `, … ${m.relatedTests.length - 6} more` : '');
+  if (m.relatedTests.length) out.push(c.dim(`  tests:   ${shown}`));
+  else out.push(c.yellow('  no test file imports this target (directly or via other modules); ran the full test command'));
   if (m.generated > m.tested) out.push(c.yellow(`  tested ${m.tested} of ${m.generated} mutants (raise --max-mutants for more)`));
 
   const survivors = m.mutants.filter((x) => x.status === 'survived');

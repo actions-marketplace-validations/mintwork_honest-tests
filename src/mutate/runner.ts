@@ -1,11 +1,11 @@
 import { spawn } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, type Dirent } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, dirname, join, relative, resolve, sep } from 'node:path';
+import { delimiter, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { adapterFor } from '../adapters/index.js';
 import { resolveTestScript, scopedTestCommand } from '../adapters/js/index.js';
-import { discoverTestFiles } from '../core/engine.js';
-import type { Mutant } from '../core/types.js';
+import { DEFAULT_IGNORED_DIRS, discoverTestFiles } from '../core/engine.js';
+import type { LanguageAdapter, Mutant } from '../core/types.js';
 
 export type MutantStatus = 'killed' | 'survived' | 'timeout';
 
@@ -93,6 +93,61 @@ function binPaths(start: string): string[] {
     if (parent === dir) return out;
     dir = parent;
   }
+}
+
+function sourceFiles(dir: string, exts: string[], out: string[] = []): string[] {
+  let entries: Dirent[];
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) {
+      if (!DEFAULT_IGNORED_DIRS.has(e.name)) sourceFiles(p, exts, out);
+    } else if (e.isFile() && exts.includes(extname(e.name).toLowerCase())) out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Test files that import `target` directly or through other local modules
+ * (`test -> Page.jsx -> lib/format.js`). Direct-import-only selection misses
+ * tests that exercise the target through its callers, which shows up as
+ * false survivors.
+ */
+export function findRelatedTests(root: string, target: string, adapter: LanguageAdapter): string[] {
+  if (!adapter.localImports || !adapter.moduleId) {
+    return discoverTestFiles([root], root).filter((f) => adapter.testImportsTarget?.(f, readFileSync(f, 'utf8'), target));
+  }
+  const importers = new Map<string, string[]>();
+  for (const file of sourceFiles(root, adapter.extensions)) {
+    let src: string;
+    try {
+      src = readFileSync(file, 'utf8');
+    } catch {
+      continue;
+    }
+    for (const id of new Set(adapter.localImports(file, src))) importers.set(id, [...(importers.get(id) ?? []), file]);
+  }
+  const tests = new Set<string>();
+  const seen = new Set<string>([adapter.moduleId(target)]);
+  const queue = [...seen];
+  while (queue.length) {
+    for (const file of importers.get(queue.shift()!) ?? []) {
+      if (adapter.isTestFile(toPosix(file))) {
+        tests.add(file);
+        continue;
+      }
+      const id = adapter.moduleId(file);
+      if (!seen.has(id)) {
+        seen.add(id);
+        queue.push(id);
+      }
+    }
+  }
+  return [...tests].sort();
 }
 
 function toPosix(p: string): string {
@@ -187,9 +242,7 @@ export async function mutate(opts: MutateOptions): Promise<MutationReport> {
   if (relTarget.startsWith('..')) throw new MutationError(`Target ${opts.target} is outside project root ${root}.`);
 
   // Which tests exercise this file?
-  const relatedTests = discoverTestFiles([root], root)
-    .filter((f) => adapter.testImportsTarget?.(f, readFileSync(f, 'utf8'), target))
-    .map((f) => toPosix(relative(root, f)));
+  const relatedTests = findRelatedTests(root, target, adapter).map((f) => toPosix(relative(root, f)));
 
   let command = opts.testCmd ?? null;
   if (command) {

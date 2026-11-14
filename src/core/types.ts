@@ -215,6 +215,10 @@ export interface LanguageAdapter {
   generateMutants?(path: string, source: string): Mutant[];
   /** Return true if `testSource` (a test file) appears to import `targetPath`. */
   testImportsTarget?(testPath: string, testSource: string, targetPath: string): boolean;
+  /** Normalized ids of local modules `source` imports, comparable with `moduleId`. */
+  localImports?(path: string, source: string): string[];
+  /** Normalized id of the module at `path` (e.g. extension and `/index` stripped). */
+  moduleId?(path: string): string;
   /** Default command to run tests in `root`, or null if unknown. */
   defaultTestCommand?(root: string): string | null;
   /** Set when the adapter is a placeholder (parses nothing yet). */

@@ -13,6 +13,18 @@ function stripExt(p: string): string {
   return p.replace(/\.(m|c)?[jt]sx?$/, '').replace(/\/index$/, '');
 }
 
+const IMPORT_RE = /(?:from\s+|import\s*\(\s*|require\s*\(\s*|mock\s*\(\s*|import\s+)['"]([^'"]+)['"]/g;
+
+/** Relative imports of a JS/TS file, as extension-less absolute module ids. */
+function localImports(path: string, source: string): string[] {
+  const out: string[] = [];
+  for (const m of source.matchAll(IMPORT_RE)) {
+    const spec = m[1]!;
+    if (spec.startsWith('.')) out.push(stripExt(resolve(dirname(path), spec)));
+  }
+  return out;
+}
+
 export const jsAdapter: LanguageAdapter = {
   id: 'js',
   extensions: EXT,
@@ -23,15 +35,10 @@ export const jsAdapter: LanguageAdapter = {
   parseTestFile: parseJsTestFile,
   generateMutants: generateJsMutants,
   testImportsTarget(testPath, testSource, targetPath) {
-    const target = stripExt(resolve(targetPath));
-    const re = /(?:from\s+|import\s*\(\s*|require\s*\(\s*|mock\s*\(\s*|import\s+)['"]([^'"]+)['"]/g;
-    for (const m of testSource.matchAll(re)) {
-      const spec = m[1]!;
-      if (!spec.startsWith('.')) continue;
-      if (stripExt(resolve(dirname(testPath), spec)) === target) return true;
-    }
-    return false;
+    return localImports(testPath, testSource).includes(stripExt(resolve(targetPath)));
   },
+  localImports,
+  moduleId: (path) => stripExt(resolve(path)),
   defaultTestCommand(root) {
     const pkgPath = join(root, 'package.json');
     if (!existsSync(pkgPath)) return null;

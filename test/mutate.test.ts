@@ -1,10 +1,10 @@
 import { join, resolve } from 'node:path';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
 import { jsAdapter, resolveTestScript, scopedTestCommand } from '../src/adapters/js/index.js';
 import { applyMutant, generateJsMutants } from '../src/adapters/js/mutants.js';
-import { mutate } from '../src/mutate/runner.js';
+import { findRelatedTests, mutate } from '../src/mutate/runner.js';
 
 const ROOT = resolve(__dirname, '..');
 
@@ -50,8 +50,9 @@ describe('mutate() on fixture projects', { timeout: 180_000 }, () => {
     const target = 'fixtures/bad-project/src/pricing.ts';
     const before = readFileSync(resolve(ROOT, target), 'utf8');
     const report = await mutate({ target, cwd: ROOT });
-    expect(report.relatedTests).toEqual(['test/pricing.test.ts']);
-    expect(report.command).toBe('npm test --silent -- test/pricing.test.ts');
+    // checkout.test.ts reaches pricing.ts through checkout.ts (and then mocks checkout away)
+    expect(report.relatedTests).toEqual(['test/checkout.test.ts', 'test/pricing.test.ts']);
+    expect(report.command).toBe('npm test --silent -- test/checkout.test.ts test/pricing.test.ts');
     expect(report.tested).toBe(26);
     expect(report.survived).toBe(22);
     expect(report.score).toBeLessThan(20);
@@ -80,7 +81,7 @@ describe('mutate() on fixture projects', { timeout: 180_000 }, () => {
       testCmd: 'vitest run {files}',
       maxMutants: 3,
     });
-    expect(report.command).toBe('vitest run test/pricing.test.ts');
+    expect(report.command).toBe('vitest run test/checkout.test.ts test/pricing.test.ts');
     expect(report.tested).toBe(3);
     expect(report.generated).toBe(26);
     expect(report.killed).toBe(3);
@@ -131,5 +132,25 @@ describe('test file discovery (field-test regressions)', () => {
     expect(jsAdapter.isTestFile('/repo/src/parse/spec.mjs')).toBe(true);
     expect(jsAdapter.isTestFile('/repo/src/latest.ts')).toBe(false);
     expect(jsAdapter.isTestFile('/repo/src/contest.ts')).toBe(false);
+  });
+});
+
+describe('related test selection (field-test regression)', () => {
+  it('includes tests that reach the target through other local modules, not just direct importers', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ht-related-'));
+    try {
+      mkdirSync(join(dir, 'src', 'lib'), { recursive: true });
+      mkdirSync(join(dir, 'test'));
+      writeFileSync(join(dir, 'src', 'lib', 'format.js'), 'export const usd = (v) => `$${v}`;\n');
+      writeFileSync(join(dir, 'src', 'Price.jsx'), "import { usd } from './lib/format.js';\nexport const Price = (p) => usd(p.v);\n");
+      writeFileSync(join(dir, 'src', 'index.ts'), "export * from './Price';\n");
+      writeFileSync(join(dir, 'test', 'price.test.jsx'), "import { Price } from '../src';\n");
+      writeFileSync(join(dir, 'test', 'format.test.js'), "import { usd } from '../src/lib/format';\n");
+      writeFileSync(join(dir, 'test', 'other.test.js'), "import { x } from '../src/other';\n");
+      const related = findRelatedTests(dir, join(dir, 'src', 'lib', 'format.js'), jsAdapter).map((f) => f.slice(dir.length + 1));
+      expect(related).toEqual(['test/format.test.js', 'test/price.test.jsx']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
