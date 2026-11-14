@@ -34,7 +34,15 @@ export function formatAudit(r: AuditResult, opts: { verbose?: boolean } = {}): s
 
   out.push('');
   const { error, warning, suspiciousTests } = r.summary;
-  if (r.findings.length === 0) {
+  if (r.filesScanned === 0 && r.parseErrors.length === 0) {
+    // "✓ 0 tests: no fake tests found" reads as a pass; it's really "nothing was checked".
+    out.push(
+      c.yellow(
+        'No test files found. honest-tests looks for *.test.* / *.spec.* / test.* files and __tests__/ dirs ' +
+          '(vitest, jest, node:test, mocha-style it/describe). Pass test files or directories explicitly if yours are named differently.',
+      ),
+    );
+  } else if (r.findings.length === 0) {
     out.push(c.green(c.bold(`✓ ${plural(r.testsScanned, 'test')} in ${plural(r.filesScanned, 'file')}: no fake tests found.`)));
   } else {
     if (suspiciousTests > 0) {

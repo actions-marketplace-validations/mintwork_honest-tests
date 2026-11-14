@@ -3,7 +3,7 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, sym
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, relative, resolve, sep } from 'node:path';
 import { adapterFor } from '../adapters/index.js';
-import { detectRunner } from '../adapters/js/index.js';
+import { resolveTestScript, scopedTestCommand } from '../adapters/js/index.js';
 import { discoverTestFiles } from '../core/engine.js';
 import type { Mutant } from '../core/types.js';
 
@@ -197,10 +197,7 @@ export async function mutate(opts: MutateOptions): Promise<MutationReport> {
   } else {
     command = adapter.defaultTestCommand?.(root) ?? null;
     if (!command) throw new MutationError('Could not determine how to run tests (no "test" script in package.json). Pass --test-cmd "<command>".');
-    const runner = detectRunner(root);
-    if (relatedTests.length && (runner === 'vitest' || runner === 'jest')) {
-      command += ' -- ' + relatedTests.map(shellQuote).join(' ');
-    }
+    command = scopedTestCommand(resolveTestScript(root), relatedTests.map(shellQuote)) ?? command;
   }
 
   const source = readFileSync(target, 'utf8');
@@ -235,7 +232,9 @@ export async function mutate(opts: MutateOptions): Promise<MutationReport> {
     const baseline = await runCommand(command, tmp, opts.timeoutMs ?? 5 * 60_000, extraPath);
     if (baseline.code !== 0) {
       throw new MutationError(
-        baseline.timedOut ? 'Test command timed out before any mutation.' : `Tests fail before any mutation (exit ${baseline.code}). Fix them first — mutation results would be meaningless.`,
+        baseline.timedOut
+          ? `Test command timed out before any mutation (${command}). If it starts a watcher or needs services, pass --test-cmd "<command that runs once>".`
+          : `Tests fail before any mutation (exit ${baseline.code}). Fix them first — mutation results would be meaningless.`,
         baseline.output,
       );
     }

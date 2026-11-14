@@ -21,6 +21,19 @@ describe('honest-tests audit', () => {
     expect(r.stdout).toContain("10 of 14 tests can't fail");
   });
 
+  it('says so when no test files were found instead of reporting a clean pass', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ht-empty-'));
+    try {
+      writeFileSync(join(dir, 'index.ts'), 'export const x = 1;\n');
+      const r = await cli(['audit', dir]);
+      expect(r.code).toBe(0);
+      expect(r.stdout).toContain('No test files found');
+      expect(r.stdout).not.toContain('no fake tests found');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('exits 0 on honest tests', async () => {
     const r = await cli(['audit', 'fixtures/good-project']);
     expect(r.code).toBe(0);
