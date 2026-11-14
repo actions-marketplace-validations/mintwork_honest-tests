@@ -23,23 +23,23 @@ describe('fixture: bad-project (AI-style tests)', () => {
     ]);
   });
 
-  it('catches the mocked unit in checkout.test.ts', () => {
-    expect(byFile('checkout.test.ts')).toEqual(['mocked-unit-under-test@4', 'asserts-on-mock@9']);
+  it('catches the mocked unit and the type-only test in checkout.test.ts', () => {
+    expect(byFile('checkout.test.ts')).toEqual(['mocked-unit-under-test@5', 'asserts-on-mock@10', 'asserts-on-own-literal@15']);
   });
 
   it('catches focus/skip and never-failing checks in misc.test.ts', () => {
     expect(byFile('misc.test.ts')).toEqual([
-      'focused-test@6',
-      'never-failing-assertion@8',
-      'never-failing-assertion@13',
-      'skipped-test@16',
+      'focused-test@7',
+      'never-failing-assertion@9',
+      'never-failing-assertion@14',
+      'skipped-test@17',
     ]);
   });
 
   it('summarizes how many tests cannot fail', () => {
     expect(result.filesScanned).toBe(3);
-    expect(result.testsScanned).toBe(14);
-    expect(result.summary).toEqual({ error: 12, warning: 3, info: 0, suspiciousTests: 10 });
+    expect(result.testsScanned).toBe(15);
+    expect(result.summary).toEqual({ error: 13, warning: 3, info: 0, suspiciousTests: 11 });
   });
 
   it('emits complete machine-readable findings', () => {
@@ -62,7 +62,7 @@ describe('fixture: good-project (honest tests)', () => {
   it('has no findings', () => {
     const result = audit({ paths: ['fixtures/good-project'], cwd: ROOT });
     expect(result.findings).toEqual([]);
-    expect(result.testsScanned).toBe(11);
+    expect(result.testsScanned).toBe(12);
   });
 });
 

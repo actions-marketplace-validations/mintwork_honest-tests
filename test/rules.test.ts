@@ -66,6 +66,126 @@ describe('tautological-assertion', () => {
   });
 });
 
+describe('asserts-on-own-literal', () => {
+  it('flags asserting on a field of a literal the test just built', () => {
+    expect(hits(`it('x', () => {\n  const p = { service: 's3' };\n  expect(p.service).toBe('s3');\n});`)).toEqual(['asserts-on-own-literal@4']);
+  });
+
+  it('names the literal and where it was built', () => {
+    const [f] = scan(`it('x', () => {\n  const p = { service: 's3' };\n  expect(p.service).toBe('s3');\n});`);
+    expect(f?.severity).toBe('error');
+    expect(f?.message).toContain('`p.service`');
+    expect(f?.message).toContain('literal `p` built on line 3');
+  });
+
+  it('sees through type annotations, `as`/`satisfies`, nesting, arrays, spreads and shorthand', () => {
+    const src = [
+      `it('type test', () => {`,
+      `  const base: Base = { region: 'eu' } as const;`,
+      `  const id = 'a';`,
+      `  const p = { ...base, id, items: [{ name: 'x' }], tags: ['t', ...['u']] } satisfies Props;`,
+      `  expect(p.items[0].name).toBe('x');`,
+      `  expect(p.tags).toHaveLength(2);`,
+      `  expect(p.region.length).toBe(2);`,
+      `  expect(p.id).not.toBe('b');`,
+      `  expect(p.tags).toContain('u');`,
+      `  expect(p).toEqual({ region: 'eu', id: 'a', items: [{ name: 'x' }], tags: ['t', 'u'] });`,
+      `  assert.equal(p.region, 'eu');`,
+      `  assert(p.region === 'eu');`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual([6, 7, 8, 9, 10, 11, 12, 13].map((l) => `asserts-on-own-literal@${l}`));
+  });
+
+  it('accepts a literal that is passed to the code under test (it may be mutated)', () => {
+    const src = [
+      `it('a', () => { const input = { a: 1 }; normalize(input); expect(input.a).toBe(2); });`,
+      `it('b', () => { const a = { x: 1 }; const b = { a }; run(b); expect(a.x).toBe(2); });`,
+      `it('c', () => { const p = { n: 1 }; const r = inc(p); expect(p.n).toBe(1); expect(r).toBe(2); });`,
+      `it('d', () => { const p = { items: [] }; p.items.push(3); expect(p.items).toHaveLength(1); });`,
+      `it('e', () => { const p = { a: 1 }; p.a = compute(); expect(p.a).toBe(2); });`,
+      `it('f', () => { let p = { a: 1 }; p = load(); expect(p.a).toBe(2); });`,
+      `it('g', () => { const p = { a: 1 }; delete p.a; expect(p).toEqual({}); });`,
+      `it('h', () => { const p = { a: 1 }; [1].forEach(() => use(p.a)); expect(p.a).toBe(1); });`,
+      `it('i', () => { const p = { a: 1 }; Object.assign(p, defaults()); expect(p.a).toBe(1); });`,
+    ].join('\n');
+    expect(hits(src)).toEqual([]);
+  });
+
+  it('accepts values that involve calls, imports, outer bindings or parameters', () => {
+    const src = [
+      `import { DEFAULT } from './config';`,
+      `const shared = { a: 1 };`,
+      `it('a', () => { const p = { id: makeId() }; expect(p.id).toBe('1'); });`,
+      `it('b', () => { const p = { s: DEFAULT }; expect(p.s).toBe('s3'); });`,
+      `it('c', () => { expect(shared.a).toBe(1); });`,
+      `it.each([[1]])('d', (n) => { const p = { n }; expect(p.n).toBe(1); });`,
+      `it('e', () => { const p = { s: 's3' }; expect(p.s).toBe(DEFAULT); });`,
+      `it('f', () => { const p = { xs: [1] }; expect(p.xs.map((x) => x * 2)).toEqual([2]); });`,
+      `it('g', () => { const p = { get x() { return calc(); } }; expect(p.x).toBe(1); });`,
+      `it('h', () => { const p = new Point({ x: 1 }); expect(p.x).toBe(1); });`,
+      `it('i', () => { const p = { [key()]: 1 }; expect(p.a).toBe(1); });`,
+      `it('j', () => { const p = { a: \`\${now()}\` }; expect(p.a).toBe('1'); });`,
+      `it('k', () => { const p = { a: 1 }; expect(p).toBeInstanceOf(Shape); });`,
+    ].join('\n');
+    expect(hits(src)).toEqual([]);
+  });
+
+  it('accepts reads that can reach the prototype (prototype-pollution tests)', () => {
+    const src = [
+      `it('x', () => {`,
+      `  const obj = {};`,
+      `  const arr = [];`,
+      `  const p = { a: 1, ...obj };`,
+      `  expect(obj.polluted).toBe(undefined);`,
+      `  expect(arr.polluted).toBeUndefined();`,
+      `  expect(p.polluted).toBeUndefined();`,
+      `  expect(p.a.toFixed).toBeDefined();`,
+      `  expect('polluted' in obj).toBe(false);`,
+      `  expect(obj).not.toHaveProperty('polluted');`,
+      `  expect(arr[0]).toBeUndefined();`,
+      `  applyPatches({}, [{ op: 'add', path: ['__proto__', 'polluted'], value: 'yes' }]);`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual([]);
+  });
+
+  it('follows own properties through spreads, computed keys and indexes', () => {
+    const src = [
+      `it('x', () => {`,
+      `  const k = 'b';`,
+      `  const base = { a: 1, b: 2 };`,
+      `  const p = { ...base, a: 3, [k]: 4, list: ['x', 'y'] };`,
+      `  expect(p.a).toBe(3);`,
+      `  expect(p.b).toBe(4);`,
+      `  expect(p[k]).toBe(4);`,
+      `  expect(p.list[1]).toBe('y');`,
+      `  expect(p.list[1].length).toBe(1);`,
+      `  expect(p['list'][0]).toBe('x');`,
+      `});`,
+    ].join('\n');
+    expect(hits(src)).toEqual([6, 7, 8, 9, 10, 11].map((l) => `asserts-on-own-literal@${l}`));
+  });
+
+  it('accepts a name bound more than once in the test (shadowing is not followed)', () => {
+    const src = `it('x', () => {\n  const p = { a: 1 };\n  expect(p.a).toBe(1);\n  run((p) => p);\n});`;
+    expect(hits(src)).toEqual([]);
+  });
+
+  it('leaves matchers that fail on plain values, snapshots and inline literals to other rules', () => {
+    const src = [
+      `it('a', () => { const p = { a: 1 }; expect(p).toThrow(); });`,
+      `it('b', () => { const p = { a: 1 }; expect(p).toHaveBeenCalled(); });`,
+      `it('c', () => { const p = { a: 1 }; expect(p).toMatchSnapshot(); });`,
+      `it('d', () => { const p = { a: 1 }; expect(p).toEqual(p); });`,
+      `it('e', () => { expect({ a: 1 }).toEqual({ a: 1 }); });`,
+      `it('f', () => { const msg = 'Invalid value'; render(); expect(msg).toHaveBeenWarnedTimes(1); });`,
+      `it('g', () => { const p = { a: 1 }; expect(p).toSatisfyAll(check); });`,
+    ].join('\n');
+    expect(hits(src).filter((h) => h.startsWith('asserts-on-own-literal'))).toEqual([]);
+  });
+});
+
 describe('asserts-on-mock', () => {
   it('flags asserting on the value a vi.fn was told to return', () => {
     const src = `it('x', () => {\n  const getUser = vi.fn().mockReturnValue({ id: 1 });\n  expect(getUser()).toEqual({ id: 1 });\n});`;

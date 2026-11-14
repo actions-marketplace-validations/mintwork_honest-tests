@@ -5,7 +5,7 @@ A test is honest only if it **fails when the behavior it names is broken**. When
 - Never weaken an assertion, change an expected value, add `.skip`, or wrap an assertion in `try/catch` to make a test pass. When a test fails, first assume the code is wrong.
 - Expected values must come from a spec or a hand calculation, never from re-running the code under test (`expect(f(x)).toBe(f(x))`) or copying its output unverified.
 - Never mock the module under test. Mock only boundaries (network, DB, clock, randomness, filesystem).
-- Assert on what the unit returns or changes, not on what a mock was configured to return. Use mocks for interaction checks (`toHaveBeenCalledWith`).
+- Assert on what the unit returns or changes, not on what a mock was configured to return. Use mocks for interaction checks (`toHaveBeenCalledWith`). Never assert on a literal the test just built (`const p = { a: 1 }; expect(p.a).toBe(1)`) — pass it through the unit.
 - Every test asserts something specific: exact values over `toBeDefined()`/`toBeTruthy()`; no snapshot-only tests; `await` every `.resolves`/`.rejects`; errors via `expect(() => f()).toThrow(Type)`.
 - Cover boundaries (`>=` vs `>`), empty inputs, and error paths.
 - Never commit `.only`.

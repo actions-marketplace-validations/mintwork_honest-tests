@@ -33,6 +33,14 @@ export interface ExprInfo {
   /** For literals: the literal's runtime truthiness / undefined-ness. */
   literalValue?: string | number | boolean | null | undefined;
   isUndefinedLiteral?: boolean;
+  /**
+   * Set when the value is built purely from literals constructed in this test
+   * (`const p = { service: 's3' }; expect(p.service)`): no call, import or outer value is involved,
+   * so the value is fixed before any code under test runs. `name`/`line` locate the literal binding.
+   */
+  ownLiteral?: { name: string; line: number };
+  /** Built only from literals and test-local literal bindings (`{ a: 1 }`, `[x, 'y']`); implied by `ownLiteral`. */
+  pureLiteral?: boolean;
 }
 
 /** Normalized intent of an assertion matcher, independent of framework spelling. */

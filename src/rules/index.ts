@@ -1,5 +1,6 @@
 import type { Rule } from '../core/types.js';
 import { assertsOnMock } from './asserts-on-mock.js';
+import { assertsOnOwnLiteral } from './asserts-on-own-literal.js';
 import { catchOnlyAssertion } from './catch-only-assertion.js';
 import { conditionalAssertion } from './conditional-assertion.js';
 import { excessiveMocking } from './excessive-mocking.js';
@@ -16,6 +17,7 @@ export const rules: Rule[] = [
   noAssertions,
   tautologicalAssertion,
   assertsOnMock,
+  assertsOnOwnLiteral,
   neverFailingAssertion,
   swallowedAssertion,
   catchOnlyAssertion,

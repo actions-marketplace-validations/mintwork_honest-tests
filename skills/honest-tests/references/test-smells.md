@@ -79,6 +79,40 @@ not the real unit that happens to share a name.
 
 ---
 
+## asserts-on-own-literal (error)
+
+```ts
+it('accepts an S3 provider config', () => {
+  const p: ProviderConfig = { service: 's3', region: 'eu-west-1' };
+  expect(p.service).toBe('s3');          // reads back the literal it just wrote
+  expect(p).toEqual({ service: 's3', region: 'eu-west-1' });
+});
+```
+
+**Why it's fake:** nothing from the code under test is involved — the value is built from literals in
+the test and read straight back. Common in "type tests": TypeScript types don't exist at runtime, so
+`const p: ProviderConfig = {...}` followed by `expect(p.service)` checks nothing the compiler hasn't
+already checked, and nothing at runtime at all.
+
+**Honest:** pass the literal through the code under test and assert on what comes out:
+
+```ts
+expect(resolveEndpoint({ service: 's3', region: 'eu-west-1' })).toBe('https://s3.eu-west-1.amazonaws.com');
+```
+
+For a genuinely type-level contract, use a compile-time check instead of a runtime assertion:
+`expectTypeOf(cfg).toMatchTypeOf<ProviderConfig>()`, `tsd`, or a `// @ts-expect-error` line that breaks
+the build when the type gets too loose.
+
+**Verify:** the rule only fires when the asserted value traces back purely to literals declared in the
+same test (object/array/template literals, operators, own-property reads) and the binding is never
+passed to a function, mutated or reassigned. Calls, `new`, imports, parameters and outer variables all
+stop it, as do reads that could reach the prototype (`{}.polluted`, `'x' in obj`, `toHaveProperty`) and
+custom matchers. If a hit is a deliberate sanity check of the test's own fixture data, delete it or
+mark it `accepted`.
+
+---
+
 ## never-failing-assertion (error)
 
 ```ts

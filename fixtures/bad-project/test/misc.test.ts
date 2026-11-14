@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 const loadConfig = async () => ({ currency: 'USD' });
+const loadRates = () => ({ USD: 1, EUR: 0.92 });
 
 describe('config', () => {
   it.only('loads config', async () => {
@@ -9,7 +10,7 @@ describe('config', () => {
   });
 
   it('has a currency list', () => {
-    const currencies = ['USD', 'EUR'];
+    const currencies = Object.keys(loadRates());
     expect(currencies.length).toBeGreaterThanOrEqual(0);
   });
 

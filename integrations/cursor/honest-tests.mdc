@@ -12,7 +12,7 @@ Rules:
 - Never weaken an assertion, change an expected value, `.skip` a test, or wrap an assertion in `try/catch` to get green. When a test fails, first suspect the code.
 - Expected values come from a spec or hand calculation — never `expect(f(x)).toBe(f(x))`, never output copied unverified.
 - Never mock the module under test; mock only boundaries (network, DB, clock, randomness, fs).
-- Assert on what the unit produces, not on what a mock was told to return. Use mocks for `toHaveBeenCalledWith` checks.
+- Assert on what the unit produces, not on what a mock was told to return. Use mocks for `toHaveBeenCalledWith` checks. Never assert on a literal the test just built — pass it through the unit.
 - Prefer exact matchers over `toBeDefined()` / `toBeTruthy()`; no snapshot-only tests; `await` `.resolves`/`.rejects`; use `expect(() => f()).toThrow(Type)` for errors.
 - Test boundaries (`>=` vs `>`), empty inputs, and error paths. Never commit `.only`.
 

@@ -457,8 +457,244 @@ function chainCallOf(node: Node): Node {
   }
 }
 
+/** TS wrappers / parens that don't change a value. */
+const VALUE_WRAPPERS = new Set(['TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullExpression', 'TSTypeAssertion', 'ParenthesizedExpression', 'AwaitExpression']);
+const PURE_GLOBALS = new Set(['undefined', 'NaN', 'Infinity']);
+
+/** Test-local literal bindings: name -> declaration line and initializer. */
+type PureBindings = Map<string, { line: number; init: Node }>;
+
+/** A value we know is a primitive (e.g. an array's `length`) but whose node we can't point at. */
+const PRIMITIVE = Symbol('primitive');
+
+/** Static key of a member read or object property: `p.a`, `p['a']`, `p[0]`, `{ a: 1 }`, `{ 'a': 1 }`. */
+function staticKey(key: Node, computed: boolean, pure: PureBindings): string | null {
+  if (!computed) return key.type === 'Identifier' ? key.name : key.type === 'StringLiteral' ? key.value : key.type === 'NumericLiteral' ? String(key.value) : null;
+  const k = resolveLiteral(key, pure);
+  if (k === PRIMITIVE || !k) return null;
+  if (k.type === 'StringLiteral') return k.value;
+  if (k.type === 'NumericLiteral') return String(k.value);
+  return stringValue(k);
+}
+
+/** Look `key` up among an object literal's own properties (later ones win; spreads of known literals are followed). */
+function ownProperty(obj: t.ObjectExpression, key: string, pure: PureBindings): Node | typeof PRIMITIVE | null {
+  for (let i = obj.properties.length - 1; i >= 0; i--) {
+    const p = obj.properties[i]!;
+    if (p.type === 'SpreadElement') {
+      const inner = resolveLiteral(p.argument, pure);
+      if (inner && inner !== PRIMITIVE && inner.type === 'ObjectExpression') {
+        const hit = ownProperty(inner, key, pure);
+        if (hit) return hit;
+        continue;
+      }
+      return null;
+    }
+    if (p.type !== 'ObjectProperty') return null;
+    const k = staticKey(p.key as Node, p.computed, pure);
+    if (k === null) return null;
+    if (k === key) return p.value as Node;
+  }
+  return null;
+}
+
+/**
+ * The literal node a pure expression evaluates to, following bindings and own-property reads.
+ * Returns null when a read isn't an own property written in the literal: `{}.polluted` comes from
+ * the prototype, which code under test can change (prototype-pollution tests rely on exactly that).
+ */
+function resolveLiteral(node: Node, pure: PureBindings): Node | typeof PRIMITIVE | null {
+  const n = unwrap(node);
+  if (n.type === 'Identifier') return pure.has(n.name) ? resolveLiteral(pure.get(n.name)!.init, pure) : null;
+  if (!isMember(n)) return n;
+  const obj = resolveLiteral(n.object, pure);
+  const key = staticKey(n.property as Node, n.computed, pure);
+  if (!obj || obj === PRIMITIVE || key === null) return null;
+  if (obj.type === 'ObjectExpression') {
+    const v = ownProperty(obj, key, pure);
+    return v === null ? null : v === PRIMITIVE ? PRIMITIVE : resolveLiteral(v, pure);
+  }
+  const isString = obj.type === 'StringLiteral' || obj.type === 'TemplateLiteral';
+  if (obj.type !== 'ArrayExpression' && !isString) return null;
+  if (key === 'length') return PRIMITIVE;
+  if (!/^\d+$/.test(key)) return null;
+  if (isString) return PRIMITIVE;
+  const els = (obj as t.ArrayExpression).elements;
+  if (els.some((e) => !e || e.type === 'SpreadElement')) return null;
+  const el = els[Number(key)];
+  return el ? resolveLiteral(el as Node, pure) : null;
+}
+
+/**
+ * True if `node` is built only from literals and `pure` bindings: object/array/template literals,
+ * operators and own-property reads. Any call, `new`, function, import or outer identifier makes it
+ * impure, as does a read that could reach the prototype.
+ */
+function isPureValue(node: Node, pure: PureBindings): boolean {
+  const n = unwrap(node);
+  switch (n.type) {
+    case 'StringLiteral':
+    case 'NumericLiteral':
+    case 'BooleanLiteral':
+    case 'NullLiteral':
+    case 'BigIntLiteral':
+    case 'RegExpLiteral':
+      return true;
+    case 'Identifier':
+      return PURE_GLOBALS.has(n.name) || pure.has(n.name);
+    case 'TemplateLiteral':
+      return n.expressions.every((e) => isPureValue(e as Node, pure));
+    case 'ObjectExpression':
+      return n.properties.every((p) => {
+        if (p.type === 'SpreadElement') return isPureValue(p.argument, pure);
+        if (p.type !== 'ObjectProperty') return false; // methods and getters run code
+        if (p.computed && !isPureValue(p.key, pure)) return false;
+        return isPureValue(p.value as Node, pure);
+      });
+    case 'ArrayExpression':
+      return n.elements.every((e) => !e || isPureValue(e.type === 'SpreadElement' ? e.argument : e, pure));
+    case 'UnaryExpression':
+      return n.operator !== 'delete' && isPureValue(n.argument, pure);
+    case 'BinaryExpression':
+      // `in` / `instanceof` consult the prototype chain.
+      if (n.operator === 'in' || n.operator === 'instanceof') return false;
+      return n.left.type !== 'PrivateName' && isPureValue(n.left as Node, pure) && isPureValue(n.right, pure);
+    case 'LogicalExpression':
+      return isPureValue(n.left, pure) && isPureValue(n.right, pure);
+    case 'ConditionalExpression':
+      return isPureValue(n.test, pure) && isPureValue(n.consequent, pure) && isPureValue(n.alternate, pure);
+    case 'MemberExpression':
+    case 'OptionalMemberExpression':
+      if (n.computed && !isPureValue(n.property as Node, pure)) return false;
+      return isPureValue(n.object, pure) && resolveLiteral(n, pure) !== null;
+    default:
+      return false;
+  }
+}
+
+/** First pure binding an expression reads, for evidence. */
+function firstPureRef(node: Node, pure: PureBindings): string | null {
+  let found: string | null = null;
+  walk(node, (n, anc) => {
+    if (found) return false;
+    const parent = anc[anc.length - 1];
+    if (n.type !== 'Identifier' || !pure.has(n.name)) return undefined;
+    if (parent && isMember(parent) && parent.property === n && !parent.computed) return undefined;
+    if (parent && parent.type === 'ObjectProperty' && parent.key === n && parent.value !== n && !parent.computed) return undefined;
+    found = n.name;
+    return undefined;
+  });
+  return found;
+}
+
+/** A call whose arguments only get compared, never mutated: expect(...), matcher calls, assert.*. */
+function isComparingCall(call: Node, vocab: AssertVocab): boolean {
+  if (!isCall(call)) return false;
+  const callee = call.callee as Node;
+  const root = chainRoot(callee);
+  if (root.type !== 'Identifier') return false;
+  if (root.name === 'expect') return true;
+  if (vocab.assertRoots.has(root.name)) return true;
+  return callee === root && vocab.assertFns.has(root.name);
+}
+
+const PURE_CONTAINERS = new Set([
+  'MemberExpression',
+  'OptionalMemberExpression',
+  'ObjectProperty',
+  'ObjectExpression',
+  'ArrayExpression',
+  'SpreadElement',
+  'TemplateLiteral',
+  'BinaryExpression',
+  'LogicalExpression',
+  'ConditionalExpression',
+  ...VALUE_WRAPPERS,
+]);
+
+/**
+ * Variables in a test body bound to values built purely from literals (`const p = { service: 's3' }`)
+ * and only ever read by assertions or by other such literals — never passed to code, mutated or
+ * reassigned.
+ */
+function ownLiteralBindings(body: Node, vocab: AssertVocab): PureBindings {
+  const decls = new Map<string, t.VariableDeclarator>();
+  const bindingCount = new Map<string, number>();
+  const bump = (name: string) => bindingCount.set(name, (bindingCount.get(name) ?? 0) + 1);
+  walk(body, (n) => {
+    if (n.type === 'VariableDeclarator') {
+      if (n.id.type === 'Identifier') {
+        bump(n.id.name);
+        if (n.init) decls.set(n.id.name, n);
+      } else walk(n.id, (p) => void (p.type === 'Identifier' && bump(p.name)));
+    }
+    if (isFunction(n) || n.type === 'FunctionDeclaration' || n.type === 'CatchClause') {
+      const params = n.type === 'CatchClause' ? (n.param ? [n.param] : []) : n.params;
+      for (const p of params) walk(p as Node, (q) => void (q.type === 'Identifier' && bump(q.name)));
+      if (n.type === 'FunctionDeclaration' && n.id) bump(n.id.name);
+    }
+  });
+  const pure: PureBindings = new Map();
+  for (const [name, d] of decls) if (bindingCount.get(name) === 1) pure.set(name, { line: d.loc!.start.line, init: d.init as Node });
+
+  /** Every read of a pure binding must end in an assertion's arguments or another pure literal. */
+  const referencesOk = (name: string): boolean => {
+    let ok = true;
+    walk(body, (n, anc) => {
+      if (!ok) return false;
+      if (n.type !== 'Identifier' || n.name !== name) return undefined;
+      const parent = anc[anc.length - 1];
+      if (!parent) return undefined;
+      if (parent.type === 'VariableDeclarator' && parent.id === n) return undefined;
+      if (isMember(parent) && parent.property === n && !parent.computed) return undefined;
+      if (parent.type === 'ObjectProperty' && parent.key === n && parent.value !== n && !parent.computed) return undefined;
+      if (anc.some((a) => a.type.startsWith('TS') && !VALUE_WRAPPERS.has(a.type))) return undefined; // type position
+      let child: Node = n;
+      for (let i = anc.length - 1; i >= 0; i--) {
+        const p = anc[i]!;
+        const climbs =
+          PURE_CONTAINERS.has(p.type) ||
+          (p.type === 'UnaryExpression' && p.operator !== 'delete');
+        // A member read climbs only from its object (or computed key); `p.x(...)` is caught at the call.
+        if (climbs && !(p.type === 'ObjectProperty' && (p as t.ObjectProperty).key === child && !(p as t.ObjectProperty).computed)) {
+          child = p;
+          continue;
+        }
+        if (p.type === 'VariableDeclarator' && p.init === child && p.id.type === 'Identifier' && pure.has(p.id.name)) return undefined;
+        if (isCall(p) && (p.arguments as Node[]).includes(child) && isComparingCall(p, vocab)) return undefined;
+        ok = false;
+        return false;
+      }
+      ok = false;
+      return false;
+    });
+    return ok;
+  };
+
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const name of [...pure.keys()]) {
+      if (isPureValue(pure.get(name)!.init, pure) && referencesOk(name)) continue;
+      pure.delete(name);
+      changed = true;
+    }
+  }
+  return pure;
+}
+
+/** Attach `ownLiteral` when an assertion operand reads only test-local literal bindings. */
+function withOwnLiteral(info: ExprInfo, node: Node, pure: PureBindings): ExprInfo {
+  if (info.kind === 'literal' || !isPureValue(node, pure)) return info;
+  const name = firstPureRef(node, pure);
+  // Inline literals (`expect({ a: 1 })`) are tautological-/never-failing-assertion's territory.
+  if (!name) return { ...info, pureLiteral: true };
+  return { ...info, pureLiteral: true, ownLiteral: { name, line: pure.get(name)!.line } };
+}
+
 function scanAssertions(source: string, lines: string[], body: Node, aliases: Map<string, string>, vocab: AssertVocab = EMPTY_VOCAB): AssertionScan {
   const assertions: Assertion[] = [];
+  const pure = ownLiteralBindings(body, vocab);
+  const describeOperand = (n: Node) => withOwnLiteral(describeExpr(source, n), n, pure);
   let helperAssertionCalls = 0;
   let hasAssertionCountGuard = false;
 
@@ -525,7 +761,7 @@ function scanAssertions(source: string, lines: string[], body: Node, aliases: Ma
           // const pending = expect(p).rejects.toThrow(); ...; await pending
           (outerParent.type === 'VariableDeclarator' && outerParent.id.type === 'Identifier' && isReferencedElsewhere(body, outerParent.id))));
       const subjectNode = node.arguments[0] as Node | undefined;
-      let subject = subjectNode ? withAlias(describeExpr(source, subjectNode)) : null;
+      let subject = subjectNode ? withAlias(describeOperand(subjectNode)) : null;
       if (subject && polls) subject = { text: subject.text, kind: 'other' };
       const start = node.loc!.start;
       assertions.push({
@@ -537,7 +773,7 @@ function scanAssertions(source: string, lines: string[], body: Node, aliases: Ma
         matcher,
         matcherKind: kind,
         negated: props.includes('not'),
-        args: args.map((a) => describeExpr(source, a)),
+        args: args.map(describeOperand),
         async: isAsync,
         awaitedOrReturned: awaited,
         context: assertionContext(source, node, ancestors, bodyIndex, vocab),
@@ -562,11 +798,11 @@ function scanAssertions(source: string, lines: string[], body: Node, aliases: Ma
         column: start.column + 1,
         text: lineText(lines, start.line, node.loc!.end.line),
         style: 'assert',
-        subject: subj ? withAlias(describeExpr(source, subj)) : null,
+        subject: subj ? withAlias(describeOperand(subj)) : null,
         matcher: m,
         matcherKind: matcherKindOf(m),
         negated: /^(not|isNot|doesNot)/.test(m),
-        args: rest.slice(0, 1).map((a) => describeExpr(source, a)),
+        args: rest.slice(0, 1).map(describeOperand),
         async: m === 'rejects' || m === 'doesNotReject',
         awaitedOrReturned: true,
         context: assertionContext(source, node, ancestors, bodyIndex, vocab),

@@ -1,6 +1,6 @@
 ---
 name: honest-tests
-description: Write and audit tests that actually verify behavior instead of tests that merely pass. Use when writing, generating, reviewing or fixing unit tests (vitest, jest; pytest planned), when asked to "add tests", "increase coverage", "audit/review the tests", or before claiming a change is tested. Detects fake tests (tautological assertions, no assertions, asserting on mocks you configured, mocking the unit under test, snapshot-only tests, try/catch that swallows failures, assertions that can never fail, leftover .only/.skip) and proves weak tests with lightweight mutation testing via the `honest-tests` CLI.
+description: Write and audit tests that actually verify behavior instead of tests that merely pass. Use when writing, generating, reviewing or fixing unit tests (vitest, jest; pytest planned), when asked to "add tests", "increase coverage", "audit/review the tests", or before claiming a change is tested. Detects fake tests (tautological assertions, no assertions, asserting on mocks you configured or on literals the test just built, mocking the unit under test, snapshot-only tests, try/catch that swallows failures, assertions that can never fail, leftover .only/.skip) and proves weak tests with lightweight mutation testing via the `honest-tests` CLI.
 license: MIT
 metadata:
   version: "0.1.0"
@@ -34,7 +34,9 @@ Use this skill in two modes:
    smell to report, not hide.
 4. **Assert on what the unit produces**, not on what a mock was told to return. Mocks are for
    *isolating* the unit and for *interaction* checks (`toHaveBeenCalledWith`), not for producing the
-   value you assert on.
+   value you assert on. The same goes for literals the test built itself: `const p = { service: 's3' };
+   expect(p.service).toBe('s3')` checks nothing. Types don't exist at runtime — check types with
+   `expectTypeOf` / `tsd` / `// @ts-expect-error`, and check behavior by passing the literal *through* the unit.
 5. **No assertion inside `try/catch`.** Use `expect(() => f()).toThrow(...)` /
    `await expect(p).rejects.toThrow(...)`.
 6. **Every test asserts something specific.** "Does not throw", `toBeDefined()`, `toBeTruthy()` and a
@@ -127,6 +129,7 @@ without the user's agreement.
 | `no-assertions` | error | Test body never asserts |
 | `tautological-assertion` | error | `expect(x).toBe(x)`, `expect(true).toBe(true)`, expected derived from actual |
 | `asserts-on-mock` | error | Asserting on the return value of a mock the test configured |
+| `asserts-on-own-literal` | error | Asserting on a literal the test just built (`const p = { service: 's3' }; expect(p.service).toBe('s3')`) — typical of runtime "type tests" |
 | `never-failing-assertion` | error | `expect(x).toBeTruthy` (no call), bare `expect(x)`, un-awaited `.resolves`, `typeof x` "defined", `length >= 0` |
 | `swallowed-assertion` | error | Assertion inside `try` whose `catch` doesn't rethrow |
 | `catch-only-assertion` | error | Assertions only in `catch` — passes when nothing throws |

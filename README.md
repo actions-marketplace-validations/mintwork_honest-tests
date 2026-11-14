@@ -111,7 +111,7 @@ it('starts free shipping exactly at 50 for non-members', () => {
 
 ```text
 $ npx honest-tests audit test && npx honest-tests mutate src/pricing.ts
-✓ 11 tests in 2 files: no fake tests found.
+✓ 12 tests in 2 files: no fake tests found.
   Mutation score: 100% (26 killed, 0 timed out, 0 survived of 26; baseline 0.5s)
   ✓ Every mutation was caught. These tests actually test something.
 ```
@@ -183,6 +183,7 @@ References the agent loads on demand: [test smell catalog](skills/honest-tests/r
 | `no-assertions` | error | Test body never asserts — passes unless it crashes |
 | `tautological-assertion` | error | `expect(x).toBe(x)`, `expect(f(1)).toBe(f(1))`, `expect(true).toBe(true)`, `toHaveLength(list.length)` |
 | `asserts-on-mock` | error | Asserting on the return value of a mock the test configured (`vi.fn().mockReturnValue`, `spyOn`, `vi.mocked`, `.mock.results`) |
+| `asserts-on-own-literal` | error | Asserting on a literal the test just built: `const p = { service: 's3' }; expect(p.service).toBe('s3')` — common in runtime "type tests" |
 | `never-failing-assertion` | error | `expect(x).toBeTruthy` (never called), bare `expect(x)`, un-awaited `.resolves`/`.rejects`, `typeof x` "defined", `length >= 0`, `{}` truthy |
 | `swallowed-assertion` | error | Assertion inside `try` whose `catch` doesn't rethrow |
 | `catch-only-assertion` | error | Assertions only in `catch` — passes when nothing throws |

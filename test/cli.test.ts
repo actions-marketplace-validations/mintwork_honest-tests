@@ -18,7 +18,7 @@ describe('honest-tests audit', () => {
     const r = await cli(['audit', 'fixtures/bad-project']);
     expect(r.code).toBe(1);
     expect(r.stdout).toContain('fixtures/bad-project/test/pricing.test.ts');
-    expect(r.stdout).toContain("10 of 14 tests can't fail");
+    expect(r.stdout).toContain("11 of 15 tests can't fail");
   });
 
   it('says so when no test files were found instead of reporting a clean pass', async () => {
@@ -49,7 +49,7 @@ describe('honest-tests audit', () => {
     const json = JSON.parse(r.stdout);
     expect(json.schemaVersion).toBe(1);
     expect(json.tool).toBe('honest-tests');
-    expect(json.summary.error).toBe(12);
+    expect(json.summary.error).toBe(13);
     for (const f of json.findings) {
       expect(Object.keys(f)).toEqual(expect.arrayContaining(['ruleId', 'severity', 'file', 'line', 'column', 'message', 'evidence', 'fix']));
     }
@@ -80,7 +80,8 @@ describe('honest-tests audit', () => {
     const r = await cli(['rules', '--json']);
     const list = JSON.parse(r.stdout) as Array<{ id: string }>;
     expect(list.map((x) => x.id)).toContain('tautological-assertion');
-    expect(list).toHaveLength(12);
+    expect(list.map((x) => x.id)).toContain('asserts-on-own-literal');
+    expect(list).toHaveLength(13);
   });
 });
 
