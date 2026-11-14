@@ -70,8 +70,8 @@ and optionally `generateMutants`, `testImportsTarget`, `defaultTestCommand`. Reg
    gh release create v0.2.0 --title "honest-tests v0.2.0" --notes-file docs/release-notes-v0.2.0.md
    ```
 
-**npm auth:** the workflow uses [npm trusted publishing](https://docs.npmjs.com/trusted-publishers)
-(configure `mintwork/honest-tests` + `release.yml` on the package's npm settings page), or an
-`NPM_TOKEN` repository secret as a fallback. A version already on npm is skipped. Manual runs of the
-workflow are dry runs.
+**npm auth:** [trusted publishing](https://docs.npmjs.com/trusted-publishers) only; no npm token
+is stored in the repository. npm accepts publishes of this package only from `release.yml` in
+`mintwork/honest-tests` (set under the package's Settings → Trusted Publisher on npmjs.com). A version
+already on npm is skipped, and manual runs of the workflow are dry runs.
 
