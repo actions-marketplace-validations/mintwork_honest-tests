@@ -1,0 +1,61 @@
+{
+  "name": "honest-tests",
+  "version": "0.1.0",
+  "description": "Stop AI coding agents from writing fake tests. An agent skill + CLI that detects tests that can't fail, and proves it with mutation testing.",
+  "type": "module",
+  "bin": {
+    "honest-tests": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "skills",
+    "commands",
+    "integrations",
+    ".claude-plugin",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dogfood": "node dist/cli.js audit test",
+    "demo:bad": "node dist/cli.js audit fixtures/bad-project --mutate fixtures/bad-project/src/pricing.ts",
+    "demo:good": "node dist/cli.js audit fixtures/good-project --mutate fixtures/good-project/src/pricing.ts",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "testing",
+    "test-smells",
+    "mutation-testing",
+    "agent-skills",
+    "claude-code",
+    "codex",
+    "cursor",
+    "ai",
+    "vitest",
+    "jest",
+    "lint"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@babel/parser": "^7.29.0"
+  },
+  "devDependencies": {
+    "@babel/types": "^7.29.0",
+    "@types/node": "^20.19.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
