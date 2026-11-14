@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - name: Dogfood — honest-tests finds nothing fake in its own tests
+        run: npm run dogfood
+      - name: Dogfood — mutation-check a rule against its own tests
+        run: node dist/cli.js mutate src/rules/never-failing-assertion.ts --test-cmd "npx vitest run test/rules.test.ts" --min-score 95
+      - name: Demo — bad fixture must fail the audit
+        run: |
+          if node dist/cli.js audit fixtures/bad-project; then echo "expected findings" && exit 1; fi
+      - name: Demo — good fixture is clean and kills every mutant
+        run: node dist/cli.js audit fixtures/good-project --mutate fixtures/good-project/src/pricing.ts --min-score 100
