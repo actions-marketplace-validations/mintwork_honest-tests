@@ -39,8 +39,10 @@ npx honest-tests mutate src/pricing.ts   # break the code on purpose, see which 
 
 ## What it found in the wild
 
-- **Open-source projects:** across 5 popular OSS JS/TS projects (11,178 tests), 2.6% of tests got an
-  error-level finding, and 0.6% had a high-confidence can't-fail bug.
+- **Open-source projects:** across 5 popular OSS JS/TS projects (11,178 tests, all 13
+  current rules), 2.6% of tests got an error-level finding, and 0.6% had a high-confidence can't-fail
+  bug (`never-failing-assertion`, `catch-only-assertion`, `tautological-assertion`,
+  `asserts-on-mock` or `asserts-on-own-literal`).
 - **100% line coverage:** in one app that enforces 100% line coverage, mutation testing still found
   that 15% of the changes to a formatting module are caught by no test.
 - **Precision of the new rule:** `asserts-on-own-literal` was field-checked on 13 OSS JS/TS projects

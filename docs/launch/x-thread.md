@@ -36,8 +36,8 @@ no test noticed.
 **4/**
 Real numbers (no projects named):
 
-Across 5 popular OSS JS/TS projects (11,178 tests), 2.6% of tests get an error-level finding, and
-0.6% have a high-confidence can't-fail bug.
+Across 5 popular OSS JS/TS projects (11,178 tests, all 13 current rules), 2.6% of tests get an
+error-level finding, and 0.6% have a high-confidence can't-fail bug.
 
 Human-written suites are mostly fine. The rules are tuned for precision.
 

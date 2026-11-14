@@ -47,8 +47,8 @@ commands: `/honest-tests:audit` and `/honest-tests:mutate`.
 
 Real-world numbers, with no projects named:
 
-- Across 5 popular OSS JS/TS projects (11,178 tests), 2.6% of tests get an error-level finding, and
-  0.6% have a high-confidence can't-fail bug.
+- Across 5 popular OSS JS/TS projects (11,178 tests, all 13 current rules), 2.6% of tests get an
+  error-level finding, and 0.6% have a high-confidence can't-fail bug.
 - In one app that enforces 100% line coverage, mutation testing still found that 15% of changes to a
   formatting module are caught by no test.
 
@@ -87,9 +87,9 @@ tree is never touched.
 
 Some numbers, with no projects named:
 
-- Across 5 popular OSS JS/TS projects (11,178 tests), 2.6% of tests get an error-level finding, and
-  0.6% have a high-confidence can't-fail bug. Most human-written suites are in good shape, and the
-  rules are tuned for precision rather than volume.
+- Across 5 popular OSS JS/TS projects (11,178 tests, all 13 current rules), 2.6% of tests get an
+  error-level finding, and 0.6% have a high-confidence can't-fail bug. Most human-written suites are in good
+  shape, and the rules are tuned for precision rather than volume.
 - In one app that enforces **100% line coverage**, mutation testing still found that 15% of changes
   to a formatting module are caught by no test.
 

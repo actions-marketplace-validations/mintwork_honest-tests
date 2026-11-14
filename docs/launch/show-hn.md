@@ -30,9 +30,9 @@ proves that a line isn't checked.
 Some numbers from running it on real code (projects not named, since the point isn't to shame
 anyone):
 
-- Across 5 popular OSS JS/TS projects (11,178 tests), 2.6% of tests get an error-level finding, and
-  0.6% have a high-confidence can't-fail bug. Mature human-written suites are mostly fine. The rules
-  are tuned so a finding usually means something.
+- Across 5 popular OSS JS/TS projects (11,178 tests, all 13 current rules), 2.6% of tests get an
+  error-level finding, and 0.6% have a high-confidence can't-fail bug. Mature human-written suites
+  are mostly fine. The rules are tuned so a finding usually means something.
 - In one app that enforces 100% line coverage, mutation testing still found that 15% of changes to a
   formatting module are caught by no test. Line coverage measures what ran, not what was checked.
 
