@@ -44,7 +44,7 @@ Output shape (`schemaVersion: 1`):
       "fix": "Remove the try/catch. For expected errors use ..."
     }
   ],
-  "unsupported": [],   // test files in languages not yet supported (e.g. pytest)
+  "unsupported": [],   // test files that couldn't be analyzed, with a `reason` (e.g. no python3 for pytest files)
   "parseErrors": [],
   "changed": { ... },  // with --changed: base, mergeBase, testFiles, testsAdded, testsModified,
                        // suspiciousAdded, suspiciousModified; findings then carry "change": "added" | "modified"

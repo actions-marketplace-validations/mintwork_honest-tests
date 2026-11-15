@@ -58,6 +58,11 @@ export interface ExprInfo {
   };
   /** Source spelling of every decimal number literal in the expression (`79.98999999999999`). */
   decimalLiterals?: string[];
+  /**
+   * The adapter knows this value is always truthy although its kind doesn't say so, e.g. Python's
+   * `m.called_once_with(1)`: not a Mock assertion but an auto-created child mock.
+   */
+  alwaysTruthy?: boolean;
 }
 
 /** Normalized intent of an assertion matcher, independent of framework spelling. */
@@ -162,6 +167,11 @@ export interface ModuleMock {
   isUnitUnderTest: boolean;
   /** The mock keeps the real module and overrides only some exports. */
   partial: boolean;
+  /**
+   * Name of the test (or helper/fixture) the mock is confined to, e.g. a pytest `@patch` decorator or
+   * `with patch(...)` block. Unset for file-level mocks (`vi.mock`), which apply to every test.
+   */
+  scope?: string;
 }
 
 export interface SpyOnUnit {
@@ -247,6 +257,11 @@ export interface LanguageAdapter {
   isCandidateTestFile?(path: string): boolean;
   /** Parse a test file into the language-neutral model. */
   parseTestFile(path: string, source: string): TestFileModel;
+  /**
+   * Parse many files at once (e.g. one Python process for a whole directory). Returns one model or
+   * Error per input, in order. Throws `AdapterUnavailableError` when the adapter can't run here.
+   */
+  parseTestFiles?(files: Array<{ path: string; source: string }>): Array<TestFileModel | Error>;
   /** Generate mutants for a source (non-test) file. Optional. */
   generateMutants?(path: string, source: string): Mutant[];
   /** Return true if `testSource` (a test file) appears to import `targetPath`. */

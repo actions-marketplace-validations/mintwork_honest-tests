@@ -1,6 +1,6 @@
 ---
 name: honest-tests
-description: Write and audit tests that actually verify behavior instead of tests that merely pass. Use when writing, generating, reviewing or fixing unit tests (vitest, jest, mocha, node:test, bun, deno; pytest planned), when asked to "add tests", "increase coverage", "audit/review the tests", or before claiming a change is tested. Detects fake tests (tautological assertions, no assertions, asserting on mocks you configured or on literals the test just built, mocking the unit under test, snapshot-only tests, try/catch that swallows failures, assertions that can never fail, leftover .only/.skip) and proves weak tests with lightweight mutation testing via the `honest-tests` CLI.
+description: Write and audit tests that actually verify behavior instead of tests that merely pass. Use when writing, generating, reviewing or fixing unit tests (vitest, jest, mocha, node:test, bun, deno, pytest), when asked to "add tests", "increase coverage", "audit/review the tests", or before claiming a change is tested. Detects fake tests (tautological assertions, no assertions, asserting on mocks you configured or on literals the test just built, mocking the unit under test, snapshot-only tests, try/catch that swallows failures, assertions that can never fail, leftover .only/.skip) and proves weak tests with lightweight mutation testing via the `honest-tests` CLI.
 license: MIT
 metadata:
   version: "0.1.2"
@@ -143,3 +143,7 @@ without the user's agreement.
 | `oracle-copied-from-output` | warning | Expected float carries rounding noise (`2.9000000000000004`) — copied from the code's output |
 | `weak-called-assertion` | info/warning | Bare `toHaveBeenCalled()` on a shared mock whose arguments other tests check |
 | `skipped-test` | warning | `.skip`, `xit`, `xdescribe` |
+
+The same rules run on pytest/unittest files (`assert`, `pytest.raises`, `self.assert*`, `patch`, `Mock`),
+except `reimplemented-algorithm`, `oracle-copied-from-output` and `weak-called-assertion` (JS/TS only for
+now; check those smells by hand in Python suites). The CLI needs `python3` 3.9+ for pytest files. Mutation testing is JS/TS only.

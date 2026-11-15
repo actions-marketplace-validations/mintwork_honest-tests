@@ -84,9 +84,11 @@ describe('fixture: node-test-project (node:test, mocha-style describe/it)', () =
 });
 
 describe('discovery', () => {
-  it('honors --ignore globs and reports planned languages instead of silently skipping them', () => {
-    const result = audit({ paths: ['fixtures'], cwd: ROOT, ignore: ['fixtures/bad-project/**', 'fixtures/node-test-project/**'] });
+  it('honors --ignore globs', () => {
+    const result = audit({ paths: ['fixtures'], cwd: ROOT, ignore: ['fixtures/bad-project/**', 'fixtures/node-test-project/**', '**/bad'] });
     expect(result.findings).toEqual([]);
-    expect(result.unsupported).toEqual([{ file: 'fixtures/python-project/tests/test_pricing.py', language: 'python' }]);
+    // good-project (2), mapped-project (3), python-project/tests/good (1)
+    expect(result.filesScanned).toBe(6);
+    expect(result.unsupported).toEqual([]);
   });
 });
