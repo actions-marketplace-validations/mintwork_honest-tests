@@ -85,9 +85,11 @@ export function toSarif(audit: AuditResult | null, mutation: MutationReport | nu
       ruleId: MUTANT_RULE,
       ruleIndex: ruleIndex.get(MUTANT_RULE),
       level: 'warning' as const,
-      message: { text: `Mutant survived: ${m.description}. No test failed when this line was changed.` },
+      message: {
+        text: `Mutant survived: ${m.description}. ${m.noCoverage ? 'No test executes this line.' : 'No test failed when this line was changed.'}`,
+      },
       locations: [location(m.file, m.line, m.column)],
-      properties: { operator: m.operator, original: m.original, replacement: m.replacement },
+      properties: { operator: m.operator, original: m.original, replacement: m.replacement, ...(m.noCoverage ? { noCoverage: true } : {}) },
     })),
   ];
 
