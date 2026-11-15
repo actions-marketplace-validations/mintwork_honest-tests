@@ -18,6 +18,13 @@ All notable changes to this project are documented here. The format follows
   and creates or updates one PR comment ("This PR adds 12 tests — 4 can't fail."), writes the job
   summary, annotates findings, optionally writes SARIF, and fails on findings in added or modified
   tests (`fail-on`). Static only: it never runs the repository's code. Usage in `examples/`.
+- Three new rules, tuned for precision on real projects (they miss cases rather than cry wolf):
+  - `reimplemented-algorithm` (warning): the expected value is numeric arithmetic over the call's own
+    inputs, e.g. `expect(total(p, q)).toBe(p * q * 1.2)`.
+  - `oracle-copied-from-output` (warning): the expected value is a float with rounding noise, e.g.
+    `2.9000000000000004`, so it was copied from the code's output.
+  - `weak-called-assertion` (info, or warning when the test checks nothing else): a bare
+    `toHaveBeenCalled()` on a shared mock whose arguments other tests in the file check.
 
 ## [0.1.2] - 2026-11-14
 
