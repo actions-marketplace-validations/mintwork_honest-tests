@@ -101,17 +101,6 @@ export class MutationError extends Error {
   }
 }
 
-function findUp(start: string, name: string): string | null {
-  let dir = start;
-  for (;;) {
-    const candidate = join(dir, name);
-    if (existsSync(candidate)) return candidate;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-
 /** Nearest node_modules that holds installed packages (not just a `.vite` cache dir). */
 function findNodeModules(start: string): string | null {
   let dir = start;
@@ -156,6 +145,31 @@ function sourceFiles(dir: string, exts: string[], out: string[] = []): string[] 
   return out;
 }
 
+/** A test file by name, or a `test/foo.js`-style candidate that contains tests (mocha, node:test). */
+function isTestSource(adapter: LanguageAdapter, file: string, src: string): boolean {
+  if (adapter.isTestFile(toPosix(file))) return true;
+  if (!adapter.isCandidateTestFile?.(toPosix(file))) return false;
+  try {
+    return adapter.parseTestFile(file, src).tests.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Files that mark a project root: package.json, or deno.json(c) for Deno projects without one. */
+const ROOT_MARKERS = ['package.json', 'deno.json', 'deno.jsonc'];
+
+function isProjectRoot(dir: string): boolean {
+  return ROOT_MARKERS.some((m) => existsSync(join(dir, m)));
+}
+
+function findProjectRoot(start: string): string | null {
+  for (let dir = start; ; dir = dirname(dir)) {
+    if (isProjectRoot(dir)) return dir;
+    if (dirname(dir) === dir) return null;
+  }
+}
+
 /**
  * Test files that import `target` directly or through other local modules
  * (`test -> Page.jsx -> lib/format.js`). Direct-import-only selection misses
@@ -167,6 +181,7 @@ export function findRelatedTests(root: string, target: string, adapter: Language
     return discoverTestFiles([root], root).filter((f) => adapter.testImportsTarget?.(f, readFileSync(f, 'utf8'), target));
   }
   const importers = new Map<string, string[]>();
+  const testFiles = new Set<string>();
   for (const file of sourceFiles(root, adapter.extensions)) {
     let src: string;
     try {
@@ -175,13 +190,14 @@ export function findRelatedTests(root: string, target: string, adapter: Language
       continue;
     }
     for (const id of new Set(adapter.localImports(file, src))) importers.set(id, [...(importers.get(id) ?? []), file]);
+    if (isTestSource(adapter, file, src)) testFiles.add(file);
   }
   const tests = new Set<string>();
   const seen = new Set<string>([adapter.moduleId(target)]);
   const queue = [...seen];
   while (queue.length) {
     for (const file of importers.get(queue.shift()!) ?? []) {
-      if (adapter.isTestFile(toPosix(file))) {
+      if (testFiles.has(file)) {
         tests.add(file);
         continue;
       }
@@ -380,9 +396,8 @@ export async function mutate(opts: MutateOptions): Promise<MutationReport> {
     throw new MutationError(`--concurrency must be a whole number of at least 1 (got ${opts.concurrency}).`);
   }
 
-  const pkg = opts.root ? join(resolve(cwd, opts.root), 'package.json') : findUp(dirname(target), 'package.json');
-  if (!pkg || !existsSync(pkg)) throw new MutationError(`Could not find a package.json above ${opts.target}; pass --root.`);
-  const root = dirname(pkg);
+  const root = opts.root ? resolve(cwd, opts.root) : findProjectRoot(dirname(target));
+  if (!root || !isProjectRoot(root)) throw new MutationError(`Could not find a package.json (or deno.json) above ${opts.target}; pass --root.`);
   const relTarget = relative(root, target);
   if (relTarget.startsWith('..')) throw new MutationError(`Target ${opts.target} is outside project root ${root}.`);
 
@@ -398,7 +413,7 @@ export async function mutate(opts: MutateOptions): Promise<MutationReport> {
     command = template.replace('{files}', relatedTests.map(shellQuote).join(' '));
   } else {
     const fallback = adapter.defaultTestCommand?.(root) ?? null;
-    if (!fallback) throw new MutationError('Could not determine how to run tests (no "test" script in package.json). Pass --test-cmd "<command>".');
+    if (!fallback) throw new MutationError('Could not determine how to run tests (no "test" script in package.json or deno.json). Pass --test-cmd "<command>".');
     const script = resolveTestScript(root);
     commandFor = (files) => scopedTestCommand(script, files.map(shellQuote));
     command = commandFor(relatedTests) ?? fallback;

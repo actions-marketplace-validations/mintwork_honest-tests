@@ -32,7 +32,7 @@ skills/honest-tests/     the Agent Skill (SKILL.md + references/)
 commands/                Claude Code plugin slash commands
 integrations/            Codex AGENTS.md snippet, Cursor rule
 fixtures/                bad-project (fake tests), good-project (honest tests), mapped-project
-                         (coverage map), python-project
+                         (coverage map), node-test-project, python-project
 ```
 
 ## Adding a rule

@@ -211,6 +211,16 @@ References the agent loads on demand: [test smell catalog](skills/honest-tests/r
 [audit procedure](skills/honest-tests/references/audit-procedure.md),
 [mutation testing](skills/honest-tests/references/mutation-testing.md).
 
+## Supported test runners
+
+| Runner | Recognized | `mutate` runs |
+| --- | --- | --- |
+| vitest, jest | `*.test.*`, `*.spec.*`, `__tests__/`, `vi`/`jest` mocks | `npm test -- <related files>` |
+| Mocha | `it`/`describe`/`context`/`specify`, chai, `this.skip()`, `done` callbacks, `test/*.js` | `mocha <related files>` (`nyc`/`c8` wrappers dropped) |
+| node:test | `test`/`t.test` subtests, `t.assert.*`, `{ skip/todo/only }`, `t.skip()`, `t.plan()`, `mock.fn`/`t.mock.method`, tap/tspl-style `t.equal`, `test/**`, `test-*.js` | `node --test <related files>` |
+| Bun | `bun:test` `expect`, `mock()`, `spyOn()`, `mock.module`, `test.if`/`skipIf`/`todo` | `bun test ./<related files>` |
+| Deno | `Deno.test` (all call shapes), `t.step`, `@std/assert`, `@std/expect`, `assertSnapshot`, `*_test.ts` | `deno test <related files>` (from the `deno.json` `test` task, or plain `deno test`) |
+
 ## Rules
 
 | Rule | Severity | Catches |
@@ -257,7 +267,9 @@ it('loads', () => { require('../src/plugin'); });
 **Safe by design:** the project is copied to a temp dir (`node_modules` symlinked), mutants are written
 only to the copy and restored after every run, and the copy is removed at the end — even on Ctrl-C. A red
 baseline aborts the run. Only test files that import the target — directly or through other local
-modules — are run (vitest/jest), once and with coverage off. Imports through path aliases (`@/lib/x`)
+modules — are run (vitest, jest, mocha, `node --test`, `bun test`, `deno test`), once and with coverage
+off. Deno projects without a package.json are found by their `deno.json(c)`; if the tests need
+permissions the `test` task doesn't grant, pass `--test-cmd`. Imports through path aliases (`@/lib/x`)
 aren't followed yet; pass `--test-cmd` if your tests reach the target that way.
 
 **Fast:** mutants run in parallel, each worker in its own copy (default: half the cores, at most 4;
@@ -304,7 +316,8 @@ such as early-exit optimizations.
 - [x] Parallel mutant runs and per-test coverage mapping (run only tests that execute the mutated line)
 - [x] SARIF output for GitHub code scanning; `--changed` mode for PR diffs
 - [x] More rules: oracle copied from output, re-implemented algorithm in test, weak `toHaveBeenCalled()`
-- [ ] Mocha, node:test, Bun, Deno; Go and Rust adapters
+- [x] Mocha, node:test, Bun, Deno
+- [ ] Go and Rust adapters
 - [x] GitHub Action with a PR comment: "this PR adds 12 tests, 4 can't fail"
 
 ## Contributing
